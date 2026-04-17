@@ -1,0 +1,13 @@
+[workspace]
+members = [
+"blau"
+]
+
+# resolver = "3"
+# [profile.release]
+# opt-level="s"
+# debug=false
+# lto="thin"
+# panic="abort"
+# codegen-units=1
+# strip="symbols"
