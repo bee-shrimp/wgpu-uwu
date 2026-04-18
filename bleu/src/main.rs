@@ -115,6 +115,9 @@ impl State {
 
         // Renders a GREEN screen
         let mut encoder = self.device.create_command_encoder(&Default::default());
+
+        // -------------------------------------------------------------------------------------------------------------------- renderpass created. -----
+
         // Create the renderpass which will clear the screen.
         let renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
@@ -133,10 +136,14 @@ impl State {
             multiview_mask: None,
         });
 
+        // ---------------------------------------------------------------------------------------------------------
+
         // If you wanted to call any drawing commands, they would go here.
 
+        // ---------------------------------------------------------------------------------------------------------
+
         // End the renderpass.
-        drop(renderpass);
+        drop(renderpass); // <------------------------------------------------------------------------------------------------- renderpass dropped. -----
 
         // Submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
@@ -203,13 +210,13 @@ fn main() {
     // iteration regardless of whether or not new events are available to
     // process. Preferred for applications that want to render as fast as
     // possible, like games.
-    event_loop.set_control_flow(ControlFlow::Poll);
+    // event_loop.set_control_flow(ControlFlow::Poll);
 
     // When the current loop iteration finishes, suspend the thread until
     // another event arrives. Helps keeping CPU utilization low if nothing
     // is happening, which is preferred if the application might be idling in
     // the background.
-    // event_loop.set_control_flow(ControlFlow::Wait);
+    event_loop.set_control_flow(ControlFlow::Wait);
 
     let mut app = App::default();
     event_loop.run_app(&mut app).unwrap();
