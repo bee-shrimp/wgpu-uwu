@@ -5,7 +5,13 @@ fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) ve
     return vec4<f32>(x, y, 0.0, 1.0);
 }
 
+struct Locals {
+    time: f32,
+}
+
+@group(0) @binding(0) var<uniform> r_locals: Locals;
+
 @fragment
 fn fs_main() -> @location(0) vec4<f32> {
-    return vec4<f32>(1.0, 0.0, 0.0, 1.0);
+    return vec4<f32>(0.1 + r_locals.time, 0.3, 0.9, 1.0);
 }

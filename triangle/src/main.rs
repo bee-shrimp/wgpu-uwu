@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use wgpu::util::DeviceExt;
+
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -17,6 +19,8 @@ struct State {
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
     render_pipeline: wgpu::RenderPipeline,
+    bind_group: wgpu::BindGroup,
+    uniform_buffer: wgpu::Buffer,
 }
 
 impl State {
@@ -40,15 +44,50 @@ impl State {
         let surface_format = cap.formats[0];
 
         // ---------------------------------------------------------------------------------------------------------
+
         // Load the shaders from disk
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
+        // -------------------------------------------------------------------------------------Create uniform buffer
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform buffer time"),
+            contents: &0.0_f32.to_ne_bytes(),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: None,
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<f32>() as u64),
+                },
+                count: None,
+            }],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: None,
+            layout: &bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &uniform_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        });
+
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: None,
-            bind_group_layouts: &[],
+            bind_group_layouts: &[Some(&bind_group_layout)],
             immediate_size: 0,
         });
 
@@ -87,7 +126,9 @@ impl State {
             size,
             surface,
             surface_format,
-            render_pipeline, // <----------------------------------------------------------------------------------
+            render_pipeline,
+            bind_group,
+            uniform_buffer,
         };
 
         // Configure surface for the first time
@@ -117,8 +158,6 @@ impl State {
 
     fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
-
-        // reconfigure the surface
         self.configure_surface();
     }
 
@@ -156,10 +195,9 @@ impl State {
                 ..Default::default()
             });
 
-        // Renders a GREEN screen
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
-        // -------------------------------------------------------------------------------------------------------------------- renderpass created. -----
+        // -------------------------------------------------------------------------------------- renderpass created.
 
         // Create the renderpass which will clear the screen.
         let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -169,7 +207,7 @@ impl State {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -181,25 +219,31 @@ impl State {
 
         // ---------------------------------------------------------------------------------------------------------
 
-        // If you wanted to call any drawing commands, they would go here.
-        renderpass.set_pipeline(&self.render_pipeline); // <-----------------------------------------------
+        renderpass.set_pipeline(&self.render_pipeline); // <--------------------------------------------------------
+        renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
         renderpass.draw(0..3, 0..1);
 
         // ---------------------------------------------------------------------------------------------------------
 
         // End the renderpass.
-        drop(renderpass); // <------------------------------------------------------------------------------------------------- renderpass dropped. -----
+        drop(renderpass); // <------------------------------------------------------------------ renderpass dropped. 
 
         // Submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
         self.window.pre_present_notify();
         surface_texture.present();
     }
+
+    fn update(&self, time: f32) {
+        self.queue
+            .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
+    }
 }
 
 #[derive(Default)]
 struct App {
     state: Option<State>,
+    time: f32,
 }
 
 impl ApplicationHandler for App {
@@ -216,6 +260,7 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.state = Some(state);
+        self.time = 0.0;
 
         window.request_redraw();
     }
@@ -229,8 +274,6 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 state.render();
-                // Emits a new redraw requested event.
-                state.get_window().request_redraw();
             }
             WindowEvent::Resized(size) => {
                 // Reconfigures the size of the surface. We do not re-render
@@ -239,6 +282,14 @@ impl ApplicationHandler for App {
             }
             _ => (),
         }
+    }
+
+    #[allow(unused_variables)]
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        let state = self.state.as_mut().unwrap();
+        self.time += 0.001;
+        state.update(self.time);
+        state.get_window().request_redraw();
     }
 }
 
