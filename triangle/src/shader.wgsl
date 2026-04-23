@@ -9,9 +9,9 @@ struct Locals {
     time: f32,
 }
 
-@group(0) @binding(0) var<uniform> r_locals: Locals;
+@group(0) @binding(0) var<uniform> locals: Locals;
 
 @fragment
 fn fs_main() -> @location(0) vec4<f32> {
-    return vec4<f32>(0.1 + r_locals.time, 0.3, 0.9, 1.0);
+    return vec4<f32>((sin(locals.time) + 1) / 2, 0.3, 0.9, 1.0);
 }
