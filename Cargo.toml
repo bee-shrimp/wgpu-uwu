@@ -1,7 +1,7 @@
 [workspace]
 members = [
 "bleu"
-, "triangle"]
+, "carre", "triangle"]
 
 resolver = "3"
 # [profile.release]

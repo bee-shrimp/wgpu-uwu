@@ -17,12 +17,27 @@ what i did:
 
 ## triangle
 
-what it is:  
+what it does:  
 
-- bleu with shader and pipeline from examples/featues/hello-triangle from the official repo.  
+- clear the window with black.  
+- draw a big triangle.  
+- the colour of the triangle slowly changes between pink and blue.  
 
 what i did:  
 
-- integrated elements from hello-triangle.  
+- integrated the shader and render pipeline from hello-triangle.  
+- integrated uniform buffer from uniform-buffer example.  
+- separated State as a module and renamed it Renderer.  
+- took more notes.  
 
+what i learnt:  
 
+- how to make/update/use an uniform buffer.  
+
+## carre
+
+what it does:  
+
+- clear the window with black.  
+- draw a square.  
+- keyboard inputs controll the square.  

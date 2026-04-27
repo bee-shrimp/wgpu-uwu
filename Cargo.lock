@@ -283,6 +283,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "carre"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "cc"
 version = "1.2.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"

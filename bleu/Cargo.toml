@@ -7,4 +7,4 @@ edition = "2024"
 env_logger = "0.11"
 pollster = "0.4"
 wgpu = "29.0.0"
-winit = { version = "0.30.8", features = ["android-native-activity"] }
+winit = "0.30.8"
