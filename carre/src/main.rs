@@ -14,12 +14,13 @@ use winit::{
 mod renderer;
 use renderer::Renderer;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Movement {
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Direction {
     Up,
     Down,
     Left,
     Right,
+    #[default]
     Still,
 }
 
@@ -77,12 +78,27 @@ impl ApplicationHandler for App {
     #[allow(unused_variables)]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
+        let mut direction_x: Direction = Direction::Still;
+        let mut direction_y: Direction = Direction::Still;
 
         if self.key_table[KeyCode::ArrowLeft as usize] {
-            println!("key input");
+            direction_x = Direction::Left
         }
 
-        renderer.update();
+        if self.key_table[KeyCode::ArrowRight as usize] {
+            direction_x = Direction::Right
+        }
+
+        if self.key_table[KeyCode::ArrowUp as usize] {
+            direction_y = Direction::Up
+        }
+
+        if self.key_table[KeyCode::ArrowDown as usize] {
+            direction_y = Direction::Down
+        }
+
+        let direction = (direction_x, direction_y);
+        renderer.update(direction);
         renderer.get_window().request_redraw();
     }
 }

@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
-use crate::Arc;
+use crate::{Arc, Direction};
 use crate::{OwnedDisplayHandle, Window};
 
 #[repr(C)]
@@ -24,18 +24,10 @@ const VERTICES: &[Vertex] = &[
         position: [0.5, 0.5, 0.0],
         color: [1.0, 1.0, 1.0],
     },
-    // Vertex {
-    //     position: [-0.5, -0.5, 0.0],
-    //     color: [1.0, 1.0, 1.0],
-    // },
     Vertex {
         position: [0.5, -0.5, 0.0],
         color: [1.0, 1.0, 1.0],
     },
-    // Vertex {
-    //     position: [0.5, 0.5, 0.0],
-    //     color: [1.0, 1.0, 1.0],
-    // },
 ];
 
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
@@ -56,6 +48,8 @@ pub struct Renderer {
     uniform_buffer: wgpu::Buffer,
 }
 
+// --------------------------------------------------------------------------------------- create vertex buffer describer
+
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
@@ -70,6 +64,7 @@ impl Vertex {
         }
     }
 }
+// --------------------------------------------------------------------------------------------------- alt way to do this
 // impl Vertex {
 //     fn desc() -> wgpu::VertexBufferLayout<'static> {
 //         wgpu::VertexBufferLayout {
@@ -328,8 +323,9 @@ impl Renderer {
         self.configure_surface();
     }
 
-    pub fn update(&self) {
+    pub fn update(&self, direction: (Direction, Direction)) {
         // self.queue
         //     .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
+        todo!()
     }
 }
