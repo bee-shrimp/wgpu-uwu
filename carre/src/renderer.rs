@@ -4,6 +4,42 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.5, 0.5, 0.0],
+        color: [1.0, 1.0, 1.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5, 0.0],
+        color: [1.0, 1.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, 0.5, 0.0],
+        color: [1.0, 1.0, 1.0],
+    },
+    // Vertex {
+    //     position: [-0.5, -0.5, 0.0],
+    //     color: [1.0, 1.0, 1.0],
+    // },
+    Vertex {
+        position: [0.5, -0.5, 0.0],
+        color: [1.0, 1.0, 1.0],
+    },
+    // Vertex {
+    //     position: [0.5, 0.5, 0.0],
+    //     color: [1.0, 1.0, 1.0],
+    // },
+];
+
+const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
+
 pub struct Renderer {
     instance: wgpu::Instance,
     window: Arc<Window>,
@@ -14,8 +50,46 @@ pub struct Renderer {
     surface_format: wgpu::TextureFormat,
     render_pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
     uniform_buffer: wgpu::Buffer,
 }
+
+impl Vertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        use std::mem;
+
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+// impl Vertex {
+//     fn desc() -> wgpu::VertexBufferLayout<'static> {
+//         wgpu::VertexBufferLayout {
+//             array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+//             step_mode: wgpu::VertexStepMode::Vertex,
+//             attributes: &[
+//                 wgpu::VertexAttribute {
+//                     offset: 0,
+//                     shader_location: 0,
+//                     format: wgpu::VertexFormat::Float32x3,
+//                 },
+//                 wgpu::VertexAttribute {
+//                     offset: std::mem::size_of::<[f32; 3]>() as wgpu::BufferAddress,
+//                     shader_location: 1,
+//                     format: wgpu::VertexFormat::Float32x3,
+//                 },
+//             ],
+//         }
+//     }
+// }
 
 impl Renderer {
     pub async fn new(display: OwnedDisplayHandle, window: Arc<Window>) -> Renderer {
@@ -45,10 +119,28 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
+        // ------------------------------------------------------------------------------------------------ vertex buffer
+
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        // ------------------------------------------------------------------------------------------------- index buffer
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let num_indices = INDICES.len() as u32;
+
         // ----------------------------------------------------------------------------------------------- uniform buffer
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer time"),
+            label: Some("uniform buffer"),
             contents: &0.0_f32.to_ne_bytes(),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
@@ -99,7 +191,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[],
+                buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -127,6 +219,9 @@ impl Renderer {
             surface_format,
             render_pipeline,
             bind_group,
+            vertex_buffer,
+            index_buffer,
+            num_indices,
             uniform_buffer,
         };
 
@@ -211,7 +306,9 @@ impl Renderer {
 
         renderpass.set_pipeline(&self.render_pipeline);
         renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
-        renderpass.draw(0..3, 0..1);
+        renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(renderpass);
@@ -231,8 +328,8 @@ impl Renderer {
         self.configure_surface();
     }
 
-    pub fn update(&self, time: f32) {
-        self.queue
-            .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
+    pub fn update(&self) {
+        // self.queue
+        //     .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
     }
 }

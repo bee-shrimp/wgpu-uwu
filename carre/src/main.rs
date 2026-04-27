@@ -27,7 +27,6 @@ pub enum Movement {
 struct App {
     renderer: Option<Renderer>,
     key_table: Box<[bool]>,
-    time: f32,
 }
 
 impl ApplicationHandler for App {
@@ -46,8 +45,6 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.renderer = Some(renderer);
-
-        self.time = 0.0;
 
         window.request_redraw();
     }
@@ -85,8 +82,7 @@ impl ApplicationHandler for App {
             println!("key input");
         }
 
-        self.time += 0.01;
-        renderer.update(self.time);
+        renderer.update();
         renderer.get_window().request_redraw();
     }
 }
