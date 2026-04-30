@@ -32,20 +32,3 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(in.uv.x, in.uv.y, 1.0, 1.0);
 }
 
-//@vertex
-//fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
-//    let x = f32(i32(in_vertex_index) - 1);
-//    let y = f32(i32(in_vertex_index & 1u) * 2 - 1);
-//    return vec4<f32>(x, y, 0.0, 1.0);
-//}
-//
-//struct Locals {
-//    time: f32,
-//}
-//
-//@group(0) @binding(0) var<uniform> locals: Locals;
-//
-//@fragment
-//fn fs_main() -> @location(0) vec4<f32> {
-//    return vec4<f32>((sin(locals.time) + 1) / 2, 0.3, 0.9, 1.0);
-//}
