@@ -1,7 +1,10 @@
 [workspace]
 members = [
-"bleu"
-, "carre", "triangle"]
+"bleu", 
+"carre", 
+"couleur", 
+"nombreux",
+"triangle"]
 
 resolver = "3"
 # [profile.release]
