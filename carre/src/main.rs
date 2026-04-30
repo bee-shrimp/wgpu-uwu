@@ -14,6 +14,38 @@ use winit::{
 mod renderer;
 use renderer::Renderer;
 
+#[derive(Debug, Clone, Copy)]
+pub struct Rect {
+    pub pos_x: f32,
+    pub pos_y: f32,
+    pub speed: f32,
+}
+
+impl Rect {
+    fn new() -> Self {
+        Self {
+            pos_x: 0.0,
+            pos_y: 0.0,
+            speed: 0.01,
+        }
+    }
+    fn update(&mut self, dir: (Direction, Direction)) -> (f32, f32) {
+        let dir_x = match dir.0 {
+            Direction::Left => -1.0,
+            Direction::Right => 1.0,
+            _ => 0.0,
+        };
+        let dir_y = match dir.1 {
+            Direction::Down => -1.0,
+            Direction::Up => 1.0,
+            _ => 0.0,
+        };
+        self.pos_x += dir_x * self.speed;
+        self.pos_y += dir_y * self.speed;
+        (self.pos_x, self.pos_y)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Direction {
     Up,
@@ -28,6 +60,7 @@ pub enum Direction {
 struct App {
     renderer: Option<Renderer>,
     key_table: Box<[bool]>,
+    rect: Option<Rect>,
 }
 
 impl ApplicationHandler for App {
@@ -46,6 +79,7 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.renderer = Some(renderer);
+        self.rect = Some(Rect::new());
 
         window.request_redraw();
     }
@@ -78,6 +112,7 @@ impl ApplicationHandler for App {
     #[allow(unused_variables)]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
+        let rect = self.rect.as_mut().unwrap();
         let mut direction_x: Direction = Direction::Still;
         let mut direction_y: Direction = Direction::Still;
 
@@ -98,7 +133,8 @@ impl ApplicationHandler for App {
         }
 
         let direction = (direction_x, direction_y);
-        renderer.update(direction);
+        let rect_pos = rect.update(direction);
+        renderer.update(rect_pos);
         renderer.get_window().request_redraw();
     }
 }

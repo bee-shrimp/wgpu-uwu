@@ -1,7 +1,8 @@
+use glam::{Mat4, Vec3};
 use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
-use crate::{Arc, Direction};
+use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
 #[repr(C)]
@@ -11,21 +12,27 @@ struct Vertex {
     color: [f32; 3],
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Uniforms {
+    pub model_matricx: [[f32; 4]; 4],
+}
+
 const VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.5, 0.5, 0.0],
+        position: [-0.25, 0.25, 0.0],
         color: [1.0, 1.0, 1.0],
     },
     Vertex {
-        position: [-0.5, -0.5, 0.0],
+        position: [-0.25, -0.25, 0.0],
         color: [1.0, 1.0, 1.0],
     },
     Vertex {
-        position: [0.5, 0.5, 0.0],
+        position: [0.25, 0.25, 0.0],
         color: [1.0, 1.0, 1.0],
     },
     Vertex {
-        position: [0.5, -0.5, 0.0],
+        position: [0.25, -0.25, 0.0],
         color: [1.0, 1.0, 1.0],
     },
 ];
@@ -133,35 +140,39 @@ impl Renderer {
         let num_indices = INDICES.len() as u32;
 
         // ----------------------------------------------------------------------------------------------- uniform buffer
+        let initial_uniforms = Uniforms {
+            model_matricx: Mat4::IDENTITY.to_cols_array_2d(),
+        };
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("uniform buffer"),
-            contents: &0.0_f32.to_ne_bytes(),
+            contents: bytemuck::cast_slice(&[initial_uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         // --------------------------------------------------------------------------------------------------- bind group
 
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            label: None,
+            label: Some("bind group layout"),
             entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
+                visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
-                    min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<f32>() as u64),
+                    min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<Uniforms>() as u64),
                 },
                 count: None,
             }],
         });
 
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: None,
+            label: Some("bind group"),
             layout: &bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    //----------------------?
                     buffer: &uniform_buffer,
                     offset: 0,
                     size: None,
@@ -181,7 +192,7 @@ impl Renderer {
         let swapchain_format = swapchain_capabilities.formats[0];
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: None,
+            label: Some("render pipeline"),
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
@@ -323,9 +334,16 @@ impl Renderer {
         self.configure_surface();
     }
 
-    pub fn update(&self, direction: (Direction, Direction)) {
-        // self.queue
-        //     .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
-        todo!()
+    pub fn update(&self, direction: (f32, f32)) {
+        let mut model = Mat4::IDENTITY;
+        model *= Mat4::from_translation(Vec3::new(direction.0, direction.1, 0.0));
+
+        self.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[Uniforms {
+                model_matricx: model.to_cols_array_2d(),
+            }]),
+        );
     }
 }
