@@ -1,5 +1,6 @@
 use glam::{Mat4, Vec3};
 use std::borrow::Cow;
+use std::mem;
 use wgpu::util::DeviceExt;
 
 use crate::Arc;
@@ -43,8 +44,6 @@ impl Vertex {
         wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
-        use std::mem;
-
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
@@ -61,9 +60,27 @@ pub struct Uniforms {
     pub model_matricx: [[f32; 4]; 4],
 }
 
-// -------------------------------------------------------------------------------------------------- number of instances
+// ---------------------------------------------------------------------------------------------------- data of instances
 
 const NUM_INSTANCES: u32 = 25;
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct Instance {
+    pos: [f32; 2],
+}
+
+impl Instance {
+    const ATTRIBS: [wgpu::VertexAttribute; 1] = wgpu::vertex_attr_array![2 => Float32x2];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
 
 // ------------------------------------------------------------------------------------------------------- renderer state
 
@@ -78,6 +95,7 @@ pub struct Renderer {
     render_pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
+    instance_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     uniform_buffer: wgpu::Buffer,
@@ -120,6 +138,24 @@ impl Renderer {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
             contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        // ---------------------------------------------------------------------------------------------- instance buffer
+        let instances: Vec<Instance> = (0..NUM_INSTANCES)
+            .map(|i| {
+                let row = i / 5;
+                let col = i % 5;
+                let x = col as f32 * 0.4 - 0.8;
+                let y = row as f32 * 0.4 - 0.8;
+
+                Instance { pos: [x, y] }
+            })
+            .collect();
+
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("instance buffer"),
+            contents: bytemuck::cast_slice(&instances),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -189,7 +225,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
+                buffers: &[Vertex::desc(), Instance::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -218,6 +254,7 @@ impl Renderer {
             render_pipeline,
             bind_group,
             vertex_buffer,
+            instance_buffer,
             index_buffer,
             num_indices,
             uniform_buffer,
@@ -305,6 +342,7 @@ impl Renderer {
         renderpass.set_pipeline(&self.render_pipeline);
         renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        renderpass.set_vertex_buffer(1, self.instance_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         renderpass.draw_indexed(0..self.num_indices, 0, 0..NUM_INSTANCES);
 

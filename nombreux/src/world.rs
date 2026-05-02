@@ -26,5 +26,3 @@ impl Rect {
         (self.pos_x - RECT_HALF, self.pos_y)
     }
 }
-
-//TODO make World struct with array of rects. let the rects pos be instances pos.
