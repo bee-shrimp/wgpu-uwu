@@ -42,12 +42,12 @@ what it does:
 - draw a small white square.  
 - keyboard inputs controll the square.  
 
-what i did:  
+how it works:  
 
-- make Rect struct in main.rs to hold position and speed of the square.  
-- make Uniforms struct in renderer.rs to hold 4x4 matrix.  
-- use glam to manipulate the matrix.  
-- use bytemuck to pass the matrix to shader.  
+- Rect struct in main.rs holds position and speed of the square.  
+- Uniforms struct in renderer.rs holds 4x4 matrix.  
+- glam provides tools to manipulate the matrix(Mat4::from_translation()).  
+- bytemuck converts matrix to suitable form for shader.  
 
 what i learnt:  
 
@@ -66,11 +66,11 @@ what it does:
 - based on carre.  
 - the colour gradates according to the uv coord.  
 
-what i did:  
+how it works:  
 
-- add uv field to Vertex struct(delete colour field).  
-- add uv to vertices. top left = (0.0, 0.0), bottom right = (1.0, 1.0) etc.  
-- add uv field to vertex shader output. it passes uv as is.  
+- Vertex struct has uv field instead of colour field.  
+- each vertices has uv. top left = (0.0, 0.0), bottom right = (1.0, 1.0) etc.  
+- vertex shader output has uv fields. vertex shader just passes uv as is.  
 - fragment shader calculates colour using uv.  
 
 what i learnt:  
@@ -86,10 +86,11 @@ what it does:
 - draw many rects.  
 - rects moves in circle.  
 
-what i did:  
+how it works:  
 
-- make instance buffer to hold the xy of instances.  
-- move rects using sin() and cos().  
+- instance buffer holds the xy of instances.  
+- rect.update() calculates new pos using sin() and cos().  
+- renderer.update() applies Mat4::from_translation() using the new pos.  
 
 what i learnt:  
 
@@ -100,6 +101,25 @@ what i learnt:
 what it does:  
 
 - based on nombreux.  
-- rotate and scale the rects.  
+- draw one big rect.  
+- rotate and scale the rect.  
+
+how it works:  
+
+- renderer.update() applies scale and rotation to matrix.  
+- uniform buffer holds the matrix.  
+- vertex shader applies the matrix to the rect.  
+
+what i learnt:  
+
+- how to apply multiple things to a 4x4matrix.  
+- the order matters(scale -> rotation -> translation).  
+- the order flips(model \*= translation * rotation * scale)
+
+## image
+
+what it does:
+
+- draw an image instead of a rect.  
 
 

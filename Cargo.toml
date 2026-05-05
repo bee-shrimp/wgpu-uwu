@@ -2,7 +2,7 @@
 members = [
 "bleu", 
 "carre", 
-"couleur", 
+"couleur", "image", 
 "nombreux", "tourner",
 "triangle"]
 
