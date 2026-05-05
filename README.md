@@ -80,8 +80,26 @@ what i learnt:
 
 ## nombreux
 
-
 what it does:  
 
 - based on coleur.  
 - draw many rects.  
+- rects moves in circle.  
+
+what i did:  
+
+- make instance buffer to hold the xy of instances.  
+- move rects using sin() and cos().  
+
+what i learnt:  
+
+- how to make/use instance buffer.  
+
+## tourner
+
+what it does:  
+
+- based on nombreux.  
+- rotate and scale the rects.  
+
+

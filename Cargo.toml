@@ -3,7 +3,7 @@ members = [
 "bleu", 
 "carre", 
 "couleur", 
-"nombreux",
+"nombreux", "tourner",
 "triangle"]
 
 resolver = "3"

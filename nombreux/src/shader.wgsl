@@ -38,3 +38,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(in.uv.xy, 1.0, 1.0);
 }
 
+// alt way
+
+//    let row = instance_index / 5u;
+//    let col = instance_index % 5u;
+//    let x = f32(col) * 0.4 - 0.8;
+//    let y = f32(row) * 0.4 - 0.8;
+//
+//    var pos = model.position.xy;
+//    pos.x += x;
+//    pos.y += y;
+//
+//    pos = (uniforms.model_matrix * vec4<f32>(pos, 0.0, 1.0)).xy;
+//
