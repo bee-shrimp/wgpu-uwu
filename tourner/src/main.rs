@@ -75,8 +75,9 @@ impl ApplicationHandler for App {
         let renderer = self.renderer.as_mut().unwrap();
         let rect = self.rect.as_mut().unwrap();
 
-        let rect_pos = rect.update();
-        renderer.update(rect_pos);
+        rect.time = rect.update();
+        renderer.update(rect.time, rect.speed);
+
         renderer.get_window().request_redraw();
     }
 }

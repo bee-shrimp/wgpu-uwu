@@ -61,10 +61,6 @@ pub struct Uniforms {
     pub model_matricx: [[f32; 4]; 4],
 }
 
-// -------------------------------------------------------------------------------------------------- number of instances
-
-const NUM_INSTANCES: u32 = 25;
-
 // ------------------------------------------------------------------------------------------------------- renderer state
 
 pub struct Renderer {
@@ -306,7 +302,7 @@ impl Renderer {
         renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        renderpass.draw_indexed(0..self.num_indices, 0, 0..NUM_INSTANCES);
+        renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(renderpass);
@@ -326,9 +322,16 @@ impl Renderer {
         self.configure_surface();
     }
 
-    pub fn update(&self, pos: (f32, f32)) {
+    pub fn update(&self, time: f32, speed: f32) {
         let mut model = Mat4::IDENTITY;
-        model *= Mat4::from_translation(Vec3::new(pos.0, pos.1, 0.0));
+        let scale = Mat4::from_scale(Vec3 {
+            x: f32::sin(time / 100.0),
+            y: f32::sin(time / 100.0),
+            z: 1.0,
+        });
+        let rotation = Mat4::from_rotation_z(-(30.0f32 + time * speed).to_radians());
+
+        model *= rotation * scale;
 
         self.queue.write_buffer(
             &self.uniform_buffer,

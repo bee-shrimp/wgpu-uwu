@@ -16,18 +16,11 @@ struct VertexOutput {
 
 @vertex
 fn vs_main(
-    model: VertexInput, @builtin(instance_index) instance_index: u32
+    model: VertexInput
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    let row = instance_index / 5u;
-    let col = instance_index % 5u;
-    let x = f32(col) * 0.4 - 0.8;
-    let y = f32(row) * 0.4 - 0.8;
-
     var pos = model.position.xy;
-    pos.x += x;
-    pos.y += y;
 
     pos = (uniforms.model_matrix * vec4<f32>(pos, 0.0, 1.0)).xy;
 
