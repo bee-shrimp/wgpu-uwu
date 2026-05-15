@@ -118,8 +118,20 @@ what i learnt:
 
 ## image
 
-what it does:
+what it does:  
 
+- based on tourner.  
 - draw an image instead of a rect.  
 
+how it works:  
+
+- image crate converts the image to vec data.  
+- rederer has texture(with image data) and sampler.  
+- diffuse_bind_group passes the texture and sampler to fragment shader.  
+
+what i learnt:  
+
+- how to handle image files with image crate.  
+- how to handle multiple bind groups.  
+- what texture and sampler are and how they works.  
 
