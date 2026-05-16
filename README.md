@@ -135,3 +135,42 @@ what i learnt:
 - how to handle multiple bind groups.  
 - what texture and sampler are and how they works.  
 
+## grand
+
+what it does:  
+
+- draw a pixel art image scaled up.  
+
+how it works:  
+
+- sampler uses Nearest instead of Linear to show crisp pixel art.  
+
+what i learnt:  
+
+- filter type difference.  
+
+(removed uniform buffer to make sure i understand how it works.)  
+
+## gris
+
+what it does:  
+
+- draw an image in grayscale.  
+
+how it works:  
+
+- fragment shader changes rgb to the avg of rgb.  
+
+what i learnt:  
+
+- how to manipulate the pixels in texture.  
+
+## flou
+
+what it does:  
+
+- draw an blured image.  
+
+how it works:  
+
+- fragment shader calc blur using colours of nearby pixels.  
