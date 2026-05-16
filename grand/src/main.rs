@@ -14,14 +14,10 @@ use winit::{
 mod renderer;
 use renderer::Renderer;
 
-mod world;
-use world::Rect;
-
 #[derive(Default)]
 struct App {
     renderer: Option<Renderer>,
     key_table: Box<[bool]>,
-    rect: Option<Rect>,
 }
 
 impl ApplicationHandler for App {
@@ -40,7 +36,6 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.renderer = Some(renderer);
-        self.rect = Some(Rect::new());
 
         window.request_redraw();
     }
@@ -73,10 +68,6 @@ impl ApplicationHandler for App {
     #[allow(unused_variables)]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
-        let rect = self.rect.as_mut().unwrap();
-
-        rect.time = rect.update();
-        renderer.update(rect.time, rect.speed);
 
         renderer.get_window().request_redraw();
     }

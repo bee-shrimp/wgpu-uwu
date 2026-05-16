@@ -1,8 +1,3 @@
-struct Uniforms {
-    model_matrix: mat4x4<f32>,
-};
-
-@group(0) @binding(0) var<uniform> uniforms: Uniforms;
 
 struct VertexInput {
     @location(0) position: vec3<f32>,
@@ -22,17 +17,15 @@ fn vs_main(
 
     var pos = model.position.xy;
 
-    pos = (uniforms.model_matrix * vec4<f32>(pos, 0.0, 1.0)).xy;
-
     out.position = vec4(pos, 0.0, 1.0);
     out.uv = model.uv;
     out.pos = pos;
     return out;
 }
 
-@group(1) @binding(0)
+@group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
-@group(1) @binding(1)
+@group(0) @binding(1)
 var s_diffuse: sampler;
 
 @fragment

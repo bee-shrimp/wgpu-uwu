@@ -1,12 +1,11 @@
-use glam::{Mat4, Vec3};
 use image::GenericImageView;
 use std::borrow::Cow;
 use wgpu::util::DeviceExt;
 
 use crate::Arc;
-use crate::world::RECT_HALF;
 use crate::{OwnedDisplayHandle, Window};
 
+const RECT_HALF: f32 = 0.5;
 // ----------------------------------------------------------------------------------------- data for vertex/index buffer
 
 #[repr(C)]
@@ -54,14 +53,6 @@ impl Vertex {
     }
 }
 
-// -------------------------------------------------------------------------------------------- struct for uniform buffer
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Uniforms {
-    pub model_matricx: [[f32; 4]; 4],
-}
-
 // ------------------------------------------------------------------------------------------------------- renderer state
 
 pub struct Renderer {
@@ -74,11 +65,9 @@ pub struct Renderer {
     surface_format: wgpu::TextureFormat,
     diffuse_bind_group: wgpu::BindGroup,
     render_pipeline: wgpu::RenderPipeline,
-    uniform_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    uniform_buffer: wgpu::Buffer,
 }
 
 impl Renderer {
@@ -223,57 +212,11 @@ impl Renderer {
 
         let num_indices = INDICES.len() as u32;
 
-        // ----------------------------------------------------------------------------------------------- uniform buffer
-        let initial_uniforms = Uniforms {
-            model_matricx: Mat4::IDENTITY.to_cols_array_2d(),
-        };
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer"),
-            contents: bytemuck::cast_slice(&[initial_uniforms]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        // ------------------------------------------------------------------------------------ uniform buffer bind group
-
-        let uniform_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("uniform bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            std::mem::size_of::<Uniforms>() as u64
-                        ),
-                    },
-                    count: None,
-                }],
-            });
-
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("uniform bind group"),
-            layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &uniform_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        });
-
         // ----------------------------------------------------------------------------------------------------- pipeline
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout"),
-            bind_group_layouts: &[
-                Some(&uniform_bind_group_layout),
-                Some(&texture_bind_group_lauout),
-            ],
+            bind_group_layouts: &[Some(&texture_bind_group_lauout)],
             immediate_size: 0,
         });
 
@@ -314,11 +257,9 @@ impl Renderer {
             surface_format,
             diffuse_bind_group,
             render_pipeline,
-            uniform_bind_group,
             vertex_buffer,
             index_buffer,
             num_indices,
-            uniform_buffer,
         };
 
         // ------------------------------------------------------------------------- configure surface for the first time
@@ -401,8 +342,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- use the renderpass
 
         renderpass.set_pipeline(&self.render_pipeline);
-        renderpass.set_bind_group(0, Some(&self.uniform_bind_group), &[]);
-        renderpass.set_bind_group(1, Some(&self.diffuse_bind_group), &[]);
+        renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
@@ -423,25 +363,5 @@ impl Renderer {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.configure_surface();
-    }
-
-    pub fn update(&self, time: f32, speed: f32) {
-        let mut model = Mat4::IDENTITY;
-        let scale = Mat4::from_scale(Vec3 {
-            x: f32::sin(time / 100.0),
-            y: f32::sin(time / 100.0),
-            z: 1.0,
-        });
-        let rotation = Mat4::from_rotation_z(-(30.0f32 + time * speed).to_radians());
-
-        model *= rotation * scale;
-
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[Uniforms {
-                model_matricx: model.to_cols_array_2d(),
-            }]),
-        );
     }
 }
