@@ -1,4 +1,6 @@
 
+@group(1) @binding(0) var<uniform> uni: f32;
+
 struct VertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
@@ -30,6 +32,8 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.uv);
+    var sample = vec4(textureSample(t_diffuse, s_diffuse, in.uv));
+    sample.r += uni;
+    return sample;
 }
 
