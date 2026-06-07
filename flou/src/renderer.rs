@@ -69,8 +69,6 @@ pub struct Renderer {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group: wgpu::BindGroup,
 }
 
 impl Renderer {
@@ -148,9 +146,9 @@ impl Renderer {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
             ..Default::default()
         });
 
@@ -215,52 +213,11 @@ impl Renderer {
 
         let num_indices = INDICES.len() as u32;
 
-        // ----------------------------------------------------------------------------------------------- uniform buffer
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer"),
-            contents: &0.0_f32.to_ne_bytes(),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        // ------------------------------------------------------------------------------------------- uniform bind group
-
-        let uniform_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::FRAGMENT,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(std::mem::size_of::<f32>() as u64),
-                    },
-                    count: None,
-                }],
-            });
-
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind group"),
-            layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    buffer: &uniform_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
-        });
-
         // ----------------------------------------------------------------------------------------------------- pipeline
 
         let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout"),
-            bind_group_layouts: &[
-                Some(&texture_bind_group_lauout),
-                Some(&uniform_bind_group_layout),
-            ],
+            bind_group_layouts: &[Some(&texture_bind_group_lauout)],
             immediate_size: 0,
         });
 
@@ -304,8 +261,6 @@ impl Renderer {
             vertex_buffer,
             index_buffer,
             num_indices,
-            uniform_buffer,
-            uniform_bind_group,
         };
 
         // ------------------------------------------------------------------------- configure surface for the first time
@@ -389,7 +344,6 @@ impl Renderer {
 
         renderpass.set_pipeline(&self.render_pipeline);
         renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
-        renderpass.set_bind_group(1, Some(&self.uniform_bind_group), &[]);
         renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
@@ -410,10 +364,5 @@ impl Renderer {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.configure_surface();
-    }
-
-    pub fn update(&self) {
-        self.queue
-            .write_buffer(&self.uniform_buffer, 0, &3.0f32.to_ne_bytes());
     }
 }
