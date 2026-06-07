@@ -101,7 +101,7 @@ impl Renderer {
         let surface_format = cap.formats[0];
 
         // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../asset/bananacat.png");
+        let diffuse_bytes = include_bytes!("../asset/big_robot.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
 
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -148,9 +148,9 @@ impl Renderer {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
 

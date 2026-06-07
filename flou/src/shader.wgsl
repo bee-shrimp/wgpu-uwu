@@ -32,8 +32,22 @@ var s_diffuse: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var sample = vec4(textureSample(t_diffuse, s_diffuse, in.uv));
-    sample.r += uni;
-    return sample;
+    let weight0 = 4.0 / 16.0;
+    let weight1 = 2.0 / 16.0;
+    let weight2 = 1.0 / 16.0;
+
+    var colour = textureSample(t_diffuse, s_diffuse, in.uv) * weight0;
+
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(1.0, 0.0)) * weight1;
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(-1.0, 0.0)) * weight1;
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(0.0, 1.0)) * weight1;
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(0.0, -1.0)) * weight1;
+
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(1.0, 1.0)) * weight2;
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(1.0, -1.0)) * weight2;
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(-1.0, 1.0)) * weight2;
+    colour += textureSample(t_diffuse, s_diffuse, in.uv + vec2(-1.0, -1.0)) * weight2;
+
+    return colour;
 }
 
