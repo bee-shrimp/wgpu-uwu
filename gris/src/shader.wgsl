@@ -31,7 +31,7 @@ var s_diffuse: sampler;
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let colour = textureSample(t_diffuse, s_diffuse, in.uv);
-    let grey = (colour.r + colour.g + colour.b) * 0.33;
+    let grey = (colour.r + colour.g + colour.b) / 3.0;
     return vec4<f32>(grey, grey, grey, colour.a);
 }
 

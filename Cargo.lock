@@ -608,6 +608,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "flou"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "foldhash"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
