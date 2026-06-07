@@ -169,8 +169,13 @@ what i learnt:
 
 what it does:  
 
-- draw an blured image.  
+- draw an image with gaussian blur.  
 
 how it works:  
 
 - fragment shader calc blur using colours of nearby pixels.  
+
+what i learnt:
+
+- the basics of gaussian blur.  
+
