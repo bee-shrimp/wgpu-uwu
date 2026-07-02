@@ -104,6 +104,75 @@ impl Renderer {
         let diffuse_rgba = diffuse_image.to_rgba8();
         let dimentions = diffuse_image.dimensions();
 
+        // ------------------------------------------------------------------------------------- mid texture to draw onto
+
+        let mid_texture_size = wgpu::Extent3d {
+            width: 100,
+            height: 100,
+            depth_or_array_layers: 1,
+        };
+
+        let mid_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("mid texture"),
+            size: mid_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[],
+        });
+
+        // ----------------------------------------------------------------------------------- mid texture view & sampler
+        let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let mid_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Nearest,
+            min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+
+        // --------------------------------------------------------------------------------------- mid texture bind group
+        let mid_texture_bind_group_lauout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("texture bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let diffuse_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("diffuse bind group"),
+            layout: &diffuse_texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_sampler),
+                },
+            ],
+        });
         // ---------------------------------------------------------------------------------------------- diffuse texture
         let texture_size = wgpu::Extent3d {
             width: dimentions.0,
@@ -190,8 +259,6 @@ impl Renderer {
             ],
         });
 
-        // ------------------------------------------------------------------------- TODO create mid texture to draw onto
-
         // ------------------------------------------------------------------------------------------------- load shaders
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
@@ -214,19 +281,56 @@ impl Renderer {
 
         let num_indices = INDICES.len() as u32;
 
-        // ------------------------------------------------------------------------------------------------ main pipeline
-        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("render pipeline layout"),
+        // ------------------------------------------------------------------------------------------------- mid pipeline
+        let mid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("render pipeline layout for mid texture"),
             bind_group_layouts: &[Some(&diffuse_texture_bind_group_lauout)],
+            immediate_size: 0,
+        });
+
+        // let swapchain_capabilities = surface.get_capabilities(&adapter);
+        // let swapchain_format = swapchain_capabilities.formats[0];
+
+        let mid_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("render pipeline for mid texture"),
+            layout: Some(&mid_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Vertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                // targets: &[Some(swapchain_format.into())],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
+        // --------------------------------------------------------- final pipeline to sample mid and draw on the surface
+        let fin_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("render pipeline layout for surface"),
+            bind_group_layouts: &[Some(&fin_texture_bind_group_lauout)],
             immediate_size: 0,
         });
 
         let swapchain_capabilities = surface.get_capabilities(&adapter);
         let swapchain_format = swapchain_capabilities.formats[0];
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("render pipeline"),
-            layout: Some(&pipeline_layout),
+        let fin_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("render pipeline for surface"),
+            layout: Some(&mid_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
@@ -245,8 +349,6 @@ impl Renderer {
             multiview_mask: None,
             cache: None,
         });
-
-        // ------------------------------------------------- TODO create a pipeline to sample mid and draw on the surface
 
         // --------------------------------------------------------------------------------------------------------------
 
