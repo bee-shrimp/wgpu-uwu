@@ -61,8 +61,8 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
-    mid_texture_bind_group: wgpu::BindGroup,
-    scaler_bind_group: wgpu::BindGroup,
+    bind_group: wgpu::BindGroup,
+    mid_texture_view: wgpu::TextureView,
     mid_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
     vertex_buffer: wgpu::Buffer,
@@ -97,13 +97,6 @@ impl Renderer {
         let cap = surface.get_capabilities(&adapter);
         let surface_format = cap.formats[0];
 
-        // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../asset/big_robot.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-
-        let diffuse_rgba = diffuse_image.to_rgba8();
-        let dimentions = diffuse_image.dimensions();
-
         // ------------------------------------------------------------------------------------- mid texture to draw onto
         let mid_texture_size = wgpu::Extent3d {
             width: 100,
@@ -118,13 +111,16 @@ impl Renderer {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
 
         // ----------------------------------------------------------------------------------- mid texture view & sampler
         let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        let mid_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+
+        let sampler_nearest = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
@@ -134,33 +130,56 @@ impl Renderer {
             ..Default::default()
         });
 
-        // --------------------------------------------------------------------------------------- mid texture bind group
-        let mid_texture_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("mid texture bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
+        //TODO create diffuse texture to draw the image onto. and draw that texture onto the mid texture.
+        // -------------------------------------------------------------------------------------------------------- image
+        let diffuse_bytes = include_bytes!("../asset/big_robot.png");
+        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
 
-        let mid_texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("mid bind group"),
-            layout: &mid_texture_bind_group_layout,
+        let diffuse_rgba = diffuse_image.to_rgba8();
+        let dimentions = diffuse_image.dimensions();
+
+        queue.write_texture(
+            wgpu::TexelCopyTextureInfo {
+                texture: &mid_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &diffuse_rgba,
+            wgpu::TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(4 * dimentions.0),
+                rows_per_image: Some(dimentions.1),
+            },
+            mid_texture_size,
+        );
+
+        // --------------------------------------------------------------------------------------------------- bind group
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("bind group layout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("bind group"),
+            layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -168,60 +187,60 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&mid_sampler),
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
                 },
             ],
         });
 
         // ----------------------------------------------------------------------------------------------- scaler sampler
-        let scaler_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-            ..Default::default()
-        });
+        // let scaler_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
+        //     address_mode_u: wgpu::AddressMode::ClampToEdge,
+        //     address_mode_v: wgpu::AddressMode::ClampToEdge,
+        //     address_mode_w: wgpu::AddressMode::ClampToEdge,
+        //     mag_filter: wgpu::FilterMode::Nearest,
+        //     min_filter: wgpu::FilterMode::Nearest,
+        //     mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+        //     ..Default::default()
+        // });
 
         // -------------------------------------------------------------------------------------------- scaler bind group
-        let scaler_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("scaler bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
-
-        let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("scaler bind group"),
-            layout: &scaler_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&mid_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&scaler_sampler),
-                },
-            ],
-        });
+        // let scaler_bind_group_layout =
+        //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        //         label: Some("scaler bind group layout"),
+        //         entries: &[
+        //             wgpu::BindGroupLayoutEntry {
+        //                 binding: 0,
+        //                 visibility: wgpu::ShaderStages::FRAGMENT,
+        //                 ty: wgpu::BindingType::Texture {
+        //                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
+        //                     view_dimension: wgpu::TextureViewDimension::D2,
+        //                     multisampled: false,
+        //                 },
+        //                 count: None,
+        //             },
+        //             wgpu::BindGroupLayoutEntry {
+        //                 binding: 1,
+        //                 visibility: wgpu::ShaderStages::FRAGMENT,
+        //                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+        //                 count: None,
+        //             },
+        //         ],
+        //     });
+        //
+        // let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        //     label: Some("scaler bind group"),
+        //     layout: &scaler_bind_group_layout,
+        //     entries: &[
+        //         wgpu::BindGroupEntry {
+        //             binding: 0,
+        //             resource: wgpu::BindingResource::TextureView(&mid_texture_view),
+        //         },
+        //         wgpu::BindGroupEntry {
+        //             binding: 1,
+        //             resource: wgpu::BindingResource::Sampler(&scaler_sampler),
+        //         },
+        //     ],
+        // });
 
         // ------------------------------------------------------------------------------------------------- load shaders
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -248,7 +267,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------------- mid pipeline
         let mid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout for mid texture"),
-            bind_group_layouts: &[Some(&mid_texture_bind_group_layout)],
+            bind_group_layouts: &[Some(&bind_group_layout)],
             immediate_size: 0,
         });
 
@@ -282,7 +301,7 @@ impl Renderer {
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render pipeline layout for surface"),
-                bind_group_layouts: &[Some(&scaler_bind_group_layout)],
+                bind_group_layouts: &[Some(&bind_group_layout)],
                 immediate_size: 0,
             });
 
@@ -322,8 +341,8 @@ impl Renderer {
             size,
             surface,
             surface_format,
-            mid_texture_bind_group,
-            scaler_bind_group,
+            bind_group,
+            mid_texture_view,
             mid_render_pipeline,
             scaler_render_pipeline,
             vertex_buffer,
@@ -390,10 +409,37 @@ impl Renderer {
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
         // ------------------------------------------------------------------------------- TODO create renderpass for mid
+        let mut mid_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("mid renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.mid_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
 
-        // ------------------------------------------------------------------------------------------ create a renderpass
-        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: None,
+        // ------------------------------------------------------------------------------------------- use the renderpass
+        mid_renderpass.set_pipeline(&self.mid_render_pipeline);
+        mid_renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
+        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
+        mid_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
+
+        // ------------------------------------------------------------------------------------------- end the renderpass
+        drop(mid_renderpass);
+
+        // ------------------------------------------------------------------------------------------ create a renderpass for surface
+        let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &surface_texture_view,
                 depth_slice: None,
@@ -410,14 +456,13 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------------- use the renderpass
-        renderpass.set_pipeline(&self.render_pipeline);
-        renderpass.set_bind_group(0, Some(&self.diffuse_texture_bind_group), &[]);
-        renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
+        scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
+        scaler_renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
+        scaler_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        scaler_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
-        drop(renderpass);
+        drop(scaler_renderpass);
 
         // ------------------------------------------------------------------- submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
