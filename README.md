@@ -179,3 +179,10 @@ what i learnt:
 
 - the basics of gaussian blur.  
 
+## entre
+
+what it does:  
+
+- draw a rectangle to small mid textute.  
+- sample and draw the mid texture to the surface.  
+- the rect moves with keyboard inputs(based on carre).  
