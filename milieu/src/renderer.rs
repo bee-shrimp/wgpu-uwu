@@ -61,7 +61,8 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
-    bind_group: wgpu::BindGroup,
+    diffuse_bind_group: wgpu::BindGroup,
+    scaler_bind_group: wgpu::BindGroup,
     mid_texture_view: wgpu::TextureView,
     mid_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
@@ -138,9 +139,27 @@ impl Renderer {
         let diffuse_rgba = diffuse_image.to_rgba8();
         let dimentions = diffuse_image.dimensions();
 
+        // ---------------------------------------------------------------------------------------------- diffuse texture
+        let diffuse_texture_size = wgpu::Extent3d {
+            width: dimentions.0,
+            height: dimentions.1,
+            depth_or_array_layers: 1,
+        };
+
+        let diffuse_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("diffuse_texture"),
+            size: diffuse_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
         queue.write_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &mid_texture,
+                texture: &diffuse_texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
@@ -151,8 +170,12 @@ impl Renderer {
                 bytes_per_row: Some(4 * dimentions.0),
                 rows_per_image: Some(dimentions.1),
             },
-            mid_texture_size,
+            diffuse_texture_size,
         );
+
+        // ----------------------------------------------------------------------------------------- diffuse texture view
+        let diffuse_texture_view =
+            diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // --------------------------------------------------------------------------------------------------- bind group
         let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -177,8 +200,23 @@ impl Renderer {
             ],
         });
 
-        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("bind group"),
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("diffuse bind group"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                },
+            ],
+        });
+
+        let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("scaler bind group"),
             layout: &bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
@@ -191,56 +229,6 @@ impl Renderer {
                 },
             ],
         });
-
-        // ----------------------------------------------------------------------------------------------- scaler sampler
-        // let scaler_sampler = device.create_sampler(&wgpu::SamplerDescriptor {
-        //     address_mode_u: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_v: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_w: wgpu::AddressMode::ClampToEdge,
-        //     mag_filter: wgpu::FilterMode::Nearest,
-        //     min_filter: wgpu::FilterMode::Nearest,
-        //     mipmap_filter: wgpu::MipmapFilterMode::Nearest,
-        //     ..Default::default()
-        // });
-
-        // -------------------------------------------------------------------------------------------- scaler bind group
-        // let scaler_bind_group_layout =
-        //     device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        //         label: Some("scaler bind group layout"),
-        //         entries: &[
-        //             wgpu::BindGroupLayoutEntry {
-        //                 binding: 0,
-        //                 visibility: wgpu::ShaderStages::FRAGMENT,
-        //                 ty: wgpu::BindingType::Texture {
-        //                     sample_type: wgpu::TextureSampleType::Float { filterable: true },
-        //                     view_dimension: wgpu::TextureViewDimension::D2,
-        //                     multisampled: false,
-        //                 },
-        //                 count: None,
-        //             },
-        //             wgpu::BindGroupLayoutEntry {
-        //                 binding: 1,
-        //                 visibility: wgpu::ShaderStages::FRAGMENT,
-        //                 ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-        //                 count: None,
-        //             },
-        //         ],
-        //     });
-        //
-        // let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        //     label: Some("scaler bind group"),
-        //     layout: &scaler_bind_group_layout,
-        //     entries: &[
-        //         wgpu::BindGroupEntry {
-        //             binding: 0,
-        //             resource: wgpu::BindingResource::TextureView(&mid_texture_view),
-        //         },
-        //         wgpu::BindGroupEntry {
-        //             binding: 1,
-        //             resource: wgpu::BindingResource::Sampler(&scaler_sampler),
-        //         },
-        //     ],
-        // });
 
         // ------------------------------------------------------------------------------------------------- load shaders
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -341,7 +329,8 @@ impl Renderer {
             size,
             surface,
             surface_format,
-            bind_group,
+            diffuse_bind_group,
+            scaler_bind_group,
             mid_texture_view,
             mid_render_pipeline,
             scaler_render_pipeline,
@@ -416,7 +405,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -428,10 +417,10 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------------- use the renderpass
         mid_renderpass.set_pipeline(&self.mid_render_pipeline);
-        mid_renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
-        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
+        mid_renderpass.set_bind_group(0, &self.diffuse_bind_group, &[]);
         mid_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
@@ -457,7 +446,7 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------------- use the renderpass
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
-        scaler_renderpass.set_bind_group(0, Some(&self.bind_group), &[]);
+        scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         scaler_renderpass.draw(0..3, 0..1);
 
