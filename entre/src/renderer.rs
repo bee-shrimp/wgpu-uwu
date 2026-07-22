@@ -446,7 +446,8 @@ impl Renderer {
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-        scaler_renderpass.draw(0..3, 0..1);
+        scaler_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        scaler_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(scaler_renderpass);
