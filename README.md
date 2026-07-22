@@ -183,6 +183,16 @@ what i learnt:
 
 what it does:  
 
-- draw a rectangle to small mid textute.  
+- draw a white rectangle inside a blue rectangle.  
+- the white rect moves with keaboard inputs(just like carre).  
+
+how it works:
+
+- create a small mid texture.  
+- clear the mid texture with blue.  
+- draw a white rectangle to the mid textute.  
 - sample and draw the mid texture to the surface.  
-- the rect moves with keyboard inputs(based on carre).  
+
+what i learnt:
+
+- how to make and use multiple bind group/pipelime/renderpass.  
