@@ -1,3 +1,5 @@
+
+// ------------------------------------------- bind for mid
 struct Uniforms {
     model_matrix: mat4x4<f32>,
 };
@@ -6,15 +8,17 @@ struct Uniforms {
 var<uniform> uniforms: Uniforms;
 
 @group(1) @binding(0)
-var mid_t_diffuse: texture_2d<f32>;
+var diffuse_texture: texture_2d<f32>;
 @group(1) @binding(1)
-var mid_s_diffuse: sampler;
+var diffuse_sampler: sampler;
 
+// ------------------------------------------- bind for scaler
 @group(0) @binding(0)
-var t_diffuse: texture_2d<f32>;
+var mid_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var s_diffuse: sampler;
+var scaler_sampler: sampler;
 
+// ------------------------------------------- vertex struct for both
 struct VertexInput {
     @location(0) position: vec2<f32>,
     @location(1) uv: vec2<f32>,
@@ -25,6 +29,7 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
 };
 
+// ------------------------------------------- vs for mid
 @vertex
 fn vs_mid(
     model: VertexInput,
@@ -36,6 +41,7 @@ fn vs_mid(
     return out;
 }
 
+// ------------------------------------------- vs for scaler
 @vertex
 fn vs_scaler(
     model: VertexInput
@@ -49,13 +55,15 @@ fn vs_scaler(
     return out;
 }
 
+// ------------------------------------------- fs for mid
 @fragment
 fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(mid_t_diffuse, mid_s_diffuse, in.uv);
+    return textureSample(diffuse_texture, diffuse_sampler, in.uv);
 }
 
+// ------------------------------------------- fs for scaler
 @fragment
 fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.uv);
+    return textureSample(mid_texture, scaler_sampler, in.uv);
 }
 

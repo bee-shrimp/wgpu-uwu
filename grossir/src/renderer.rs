@@ -11,38 +11,18 @@ const RECT_HALF: f32 = 0.25;
 const LOGIC_WIDTH: u32 = 160;
 const LOGIC_HEIGHT: u32 = 144;
 
-// ------------------------------------------------------------------------------------------- data for mid vertex buffer
+// --------------------------------------------------------------------------------------------- struct for vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct MidVertex {
+struct Vertex {
     position: [f32; 2],
     uv: [f32; 2],
 }
-
-const MID_VERTICES: &[MidVertex] = &[
-    MidVertex {
-        position: [-RECT_HALF, RECT_HALF], // top left
-        uv: [0.0, 0.0],
-    },
-    MidVertex {
-        position: [-RECT_HALF, -RECT_HALF], // bottom left
-        uv: [0.0, 1.0],
-    },
-    MidVertex {
-        position: [RECT_HALF, RECT_HALF], // top right
-        uv: [1.0, 0.0],
-    },
-    MidVertex {
-        position: [RECT_HALF, -RECT_HALF], // bottom rightV
-        uv: [1.0, 1.0],
-    },
-];
-
 // ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
-impl MidVertex {
+impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
-    // 0 => MidVertex::position, 1 => MidVertex::uv
+    // 0 => Vertex::position, 1 => Vertex::uv
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -52,6 +32,43 @@ impl MidVertex {
         }
     }
 }
+
+// ------------------------------------------------------------------------------------------- data for mid vertex buffer
+const MID_VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-RECT_HALF, RECT_HALF], // top left
+        uv: [0.0, 0.0],
+    },
+    Vertex {
+        position: [-RECT_HALF, -RECT_HALF], // bottom left
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        position: [RECT_HALF, RECT_HALF], // top right
+        uv: [1.0, 0.0],
+    },
+    Vertex {
+        position: [RECT_HALF, -RECT_HALF], // bottom rightV
+        uv: [1.0, 1.0],
+    },
+];
+
+// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
+
+const SCALER_VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-1.0, -1.0], // bottom left
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        position: [-1.0, 3.0], // top left outside
+        uv: [0.0, -1.0],
+    },
+    Vertex {
+        position: [3.0, -1.0], // bottom right outside
+        uv: [2.0, 1.0],
+    },
+];
 
 // ------------------------------------------------------------------------------------------------------- uniform buffer
 #[repr(C)]
@@ -62,44 +79,6 @@ pub struct Uniforms {
 
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
-
-// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct ScalerVertex {
-    position: [f32; 2],
-    uv: [f32; 2],
-}
-
-const SCALER_VERTICES: &[ScalerVertex] = &[
-    ScalerVertex {
-        position: [-1.0, -1.0], // bottom left
-        uv: [0.0, 1.0],
-    },
-    ScalerVertex {
-        position: [-1.0, 3.0], // top left outside
-        uv: [0.0, -1.0],
-    },
-    ScalerVertex {
-        position: [3.0, -1.0], // bottom right outside
-        uv: [2.0, 1.0],
-    },
-];
-
-// ----------------------------------------------------------------------------- descriptor for Scaler VertexBufferLayout
-impl ScalerVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
-    // 0 => ScalerVertex::position, 1 => ScalerVertex::uv
-
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress, // use std::mem;
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
 
 // ------------------------------------------------------------------------------------------------------- renderer state
 pub struct Renderer {
@@ -156,12 +135,12 @@ impl Renderer {
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
 
         let diffuse_rgba = diffuse_image.to_rgba8();
-        let dimentions = diffuse_image.dimensions();
+        let dimensions = diffuse_image.dimensions();
 
         // ---------------------------------------------------------------------------------------------- diffuse texture
         let diffuse_texture_size = wgpu::Extent3d {
-            width: dimentions.0,
-            height: dimentions.1,
+            width: dimensions.0,
+            height: dimensions.1,
             depth_or_array_layers: 1,
         };
 
@@ -186,8 +165,8 @@ impl Renderer {
             &diffuse_rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
-                bytes_per_row: Some(4 * dimentions.0),
-                rows_per_image: Some(dimentions.1),
+                bytes_per_row: Some(4 * dimensions.0),
+                rows_per_image: Some(dimensions.1),
             },
             diffuse_texture_size,
         );
@@ -291,7 +270,6 @@ impl Renderer {
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    //----------------------?
                     buffer: &uniform_buffer,
                     offset: 0,
                     size: None,
@@ -392,7 +370,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_mid"),
-                buffers: &[MidVertex::desc()],
+                buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -430,7 +408,7 @@ impl Renderer {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: Some("vs_scaler"),
-                    buffers: &[ScalerVertex::desc()],
+                    buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
@@ -581,7 +559,6 @@ impl Renderer {
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
-        scaler_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         scaler_renderpass.set_viewport(
             vieport_xywh[0],
             vieport_xywh[1],
