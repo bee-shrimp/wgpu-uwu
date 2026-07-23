@@ -1,5 +1,4 @@
 use glam::{Mat4, Vec3};
-use image::GenericImageView;
 use std::borrow::Cow;
 use std::mem;
 use wgpu::util::DeviceExt;
@@ -7,22 +6,45 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
-const RECT_HALF: f32 = 0.25;
-const LOGIC_WIDTH: u32 = 160;
-const LOGIC_HEIGHT: u32 = 144;
+const RECT_HALF: f32 = 0.2;
 
-// --------------------------------------------------------------------------------------------- struct for vertex buffer
+// ------------------------------------------------------------------------------------------- data for mid vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
-    position: [f32; 2],
+struct MidVertex {
+    position: [f32; 3],
     uv: [f32; 2],
+    colour: [f32; 3],
 }
+
+const MID_VERTICES: &[MidVertex] = &[
+    MidVertex {
+        position: [-RECT_HALF, RECT_HALF, 0.0], // top left
+        uv: [0.0, 0.0],
+        colour: [1.0, 1.0, 1.0],
+    },
+    MidVertex {
+        position: [-RECT_HALF, -RECT_HALF, 0.0], // bottom left
+        uv: [0.0, 1.0],
+        colour: [1.0, 1.0, 1.0],
+    },
+    MidVertex {
+        position: [RECT_HALF, RECT_HALF, 0.0], // top right
+        uv: [1.0, 0.0],
+        colour: [1.0, 1.0, 1.0],
+    },
+    MidVertex {
+        position: [RECT_HALF, -RECT_HALF, 0.0], // bottom rightV
+        uv: [1.0, 1.0],
+        colour: [1.0, 1.0, 1.0],
+    },
+];
+
 // ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
-impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
-    // 0 => Vertex::position, 1 => Vertex::uv
+impl MidVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2=>Float32x3];
+    // 0 => MidVertex::position, 1 => MidVertex::uv, 2 => MidVertex::colour
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -32,43 +54,6 @@ impl Vertex {
         }
     }
 }
-
-// ------------------------------------------------------------------------------------------- data for mid vertex buffer
-const MID_VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-RECT_HALF, RECT_HALF], // top left
-        uv: [0.0, 0.0],
-    },
-    Vertex {
-        position: [-RECT_HALF, -RECT_HALF], // bottom left
-        uv: [0.0, 1.0],
-    },
-    Vertex {
-        position: [RECT_HALF, RECT_HALF], // top right
-        uv: [1.0, 0.0],
-    },
-    Vertex {
-        position: [RECT_HALF, -RECT_HALF], // bottom rightV
-        uv: [1.0, 1.0],
-    },
-];
-
-// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-
-const SCALER_VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-1.0, -1.0], // bottom left
-        uv: [0.0, 1.0],
-    },
-    Vertex {
-        position: [-1.0, 3.0], // top left outside
-        uv: [0.0, -1.0],
-    },
-    Vertex {
-        position: [3.0, -1.0], // bottom right outside
-        uv: [2.0, 1.0],
-    },
-];
 
 // ------------------------------------------------------------------------------------------------------- uniform buffer
 #[repr(C)]
@@ -80,6 +65,44 @@ pub struct Uniforms {
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
+// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct ScalerVertex {
+    position: [f32; 2],
+    uv: [f32; 2],
+}
+
+const SCALER_VERTICES: &[ScalerVertex] = &[
+    ScalerVertex {
+        position: [-1.0, -1.0], // bottom left
+        uv: [0.0, 1.0],
+    },
+    ScalerVertex {
+        position: [-1.0, 3.0], // top left outside
+        uv: [0.0, -1.0],
+    },
+    ScalerVertex {
+        position: [3.0, -1.0], // bottom right outside
+        uv: [2.0, 1.0],
+    },
+];
+
+// ----------------------------------------------------------------------------- descriptor for Scaler VertexBufferLayout
+impl ScalerVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+    // 0 => ScalerVertex::position, 1 => ScalerVertex::uv
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress, // use std::mem;
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
 // ------------------------------------------------------------------------------------------------------- renderer state
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -89,8 +112,7 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
-    uniform_bind_group: wgpu::BindGroup,
-    diffuse_bind_group: wgpu::BindGroup,
+    mid_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
     mid_texture_view: wgpu::TextureView,
     mid_render_pipeline: wgpu::RenderPipeline,
@@ -129,51 +151,6 @@ impl Renderer {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
-
-        // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../asset/big_robot.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-
-        let diffuse_rgba = diffuse_image.to_rgba8();
-        let dimensions = diffuse_image.dimensions();
-
-        // ---------------------------------------------------------------------------------------------- diffuse texture
-        let diffuse_texture_size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth_or_array_layers: 1,
-        };
-
-        let diffuse_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("diffuse_texture"),
-            size: diffuse_texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &diffuse_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &diffuse_rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimensions.0),
-                rows_per_image: Some(dimensions.1),
-            },
-            diffuse_texture_size,
-        );
-
-        // ----------------------------------------------------------------------------------------- diffuse texture view
-        let diffuse_texture_view =
-            diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // -------------------------------------------------------------------------------------------- mid vertex buffer
         let mid_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -215,8 +192,8 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------- mid texture to draw onto
         let mid_texture_size = wgpu::Extent3d {
-            width: LOGIC_WIDTH,
-            height: LOGIC_HEIGHT,
+            width: 100,
+            height: 100,
             depth_or_array_layers: 1,
         };
 
@@ -247,9 +224,10 @@ impl Renderer {
         });
 
         // ----------------------------------------------------------------------------------------------- mid bind group
-        let uniform_bind_group_layout =
+
+        let mid_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("uniform bind group layout"),
+                label: Some("mid bind group layout"),
                 entries: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStages::VERTEX,
@@ -264,55 +242,18 @@ impl Renderer {
                 }],
             });
 
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("uniform bind group"),
-            layout: &uniform_bind_group_layout,
+        let mid_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("mid bind group"),
+            layout: &mid_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    //----------------------?
                     buffer: &uniform_buffer,
                     offset: 0,
                     size: None,
                 }),
             }],
-        });
-
-        let diffuse_bind_group_lauout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("diffuse bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("diffuse bind group"),
-            layout: &diffuse_bind_group_lauout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
-                },
-            ],
         });
 
         // -------------------------------------------------------------------------------------------- scaler bind group
@@ -357,10 +298,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------------- mid pipeline
         let mid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout for mid texture"),
-            bind_group_layouts: &[
-                Some(&uniform_bind_group_layout),
-                Some(&diffuse_bind_group_lauout),
-            ],
+            bind_group_layouts: &[Some(&mid_bind_group_layout)],
             immediate_size: 0,
         });
 
@@ -370,7 +308,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_mid"),
-                buffers: &[Vertex::desc()],
+                buffers: &[MidVertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -408,7 +346,7 @@ impl Renderer {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: Some("vs_scaler"),
-                    buffers: &[Vertex::desc()],
+                    buffers: &[ScalerVertex::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
@@ -434,8 +372,7 @@ impl Renderer {
             size,
             surface,
             surface_format,
-            uniform_bind_group,
-            diffuse_bind_group,
+            mid_bind_group,
             scaler_bind_group,
             mid_texture_view,
             mid_render_pipeline,
@@ -513,7 +450,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -525,11 +462,10 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------------- use the renderpass
         mid_renderpass.set_pipeline(&self.mid_render_pipeline);
-        mid_renderpass.set_bind_group(0, &self.uniform_bind_group, &[]);
-        mid_renderpass.set_bind_group(1, &self.diffuse_bind_group, &[]);
+        mid_renderpass.set_bind_group(0, Some(&self.mid_bind_group), &[]);
         mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        mid_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
+        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
@@ -543,7 +479,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -559,6 +495,7 @@ impl Renderer {
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
+        scaler_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         scaler_renderpass.set_viewport(
             vieport_xywh[0],
             vieport_xywh[1],
