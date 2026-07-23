@@ -185,6 +185,7 @@ what it does:
 
 - draw a white rectangle inside a blue rectangle.  
 - the white rect moves with keaboard inputs(just like carre).  
+- resizing the window does not break the aspect ratio of the blue rect.   
 
 how it works:
 
@@ -192,7 +193,9 @@ how it works:
 - clear the mid texture with blue.  
 - draw a white rectangle to the mid textute.  
 - sample and draw the mid texture to the surface.  
+- viewport is set to keep the aspect ratio in tact.  
 
 what i learnt:
 
 - how to make and use multiple bind group/pipelime/renderpass.  
+- how to keep the aspect ratio in tact.  
