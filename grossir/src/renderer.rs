@@ -579,11 +579,11 @@ impl Renderer {
     }
 
     fn calc_ratio(&self) -> [f32; 4] {
-        let mid_w = self.mid_texture_view.texture().size().width;
-        let mid_h = self.mid_texture_view.texture().size().height;
+        let mid_w = self.mid_texture_view.texture().size().width as i16;
+        let mid_h = self.mid_texture_view.texture().size().height as i16;
 
-        let surface_w = self.window.inner_size().width;
-        let surface_h = self.window.inner_size().height;
+        let surface_w = self.window.inner_size().width as i16;
+        let surface_h = self.window.inner_size().height as i16;
 
         let mid_ratio = mid_h / mid_w;
         let surface_ratio = surface_h / surface_w;
