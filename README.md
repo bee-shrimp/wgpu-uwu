@@ -183,9 +183,10 @@ what i learnt:
 
 what it does:  
 
+- clear the window with black.  
 - draw a white rectangle inside a blue rectangle.  
 - the white rect moves with keaboard inputs(just like carre).  
-- resizing the window does not break the aspect ratio of the blue rect.   
+- resizing the window does not break the aspect ratio of the blue rect.  
 
 how it works:
 
@@ -199,3 +200,23 @@ what i learnt:
 
 - how to make and use multiple bind group/pipelime/renderpass.  
 - how to keep the aspect ratio in tact.  
+
+## grossir
+
+what it does:  
+
+- clear the window with bleu.  
+- draw a pixel art on a black rectangle.  
+- the pixel art moves with keaboard inputs(just like entre).  
+
+how it works:
+
+- load a png file using image.  
+- create a diffuse texture to draw the image onto.  
+- use queue.write_texture to draw the image on diffuse_texture.  
+- create and use diffuse_bindgroup to sample diffuse_texture to mid.  
+
+what i learnt:
+
+- how to make and use even more bind group/pipeline/renderpass.  
+
