@@ -19,6 +19,7 @@ pub struct Rect {
     pub pos_x: f32,
     pub pos_y: f32,
     pub speed: f32,
+    pub last_pos: (f32, f32),
 }
 
 impl Rect {
@@ -27,9 +28,12 @@ impl Rect {
             pos_x: 0.0,
             pos_y: 0.0,
             speed: 0.01,
+            last_pos: (0.0, 0.0),
         }
     }
     fn update(&mut self, dir: (Direction, Direction)) -> (f32, f32) {
+        self.last_pos = (self.pos_x, self.pos_y);
+
         let dir_x = match dir.0 {
             Direction::Left => -1.0,
             Direction::Right => 1.0,
@@ -145,8 +149,10 @@ impl ApplicationHandler for App {
         let direction = (direction_x, direction_y);
         let rect_pos = rect.update(direction);
 
-        renderer.update(rect_pos);
-        renderer.get_window().request_redraw();
+        if rect_pos != rect.last_pos {
+            renderer.update(rect_pos);
+            renderer.get_window().request_redraw()
+        };
     }
 }
 

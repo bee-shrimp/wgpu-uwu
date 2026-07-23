@@ -8,13 +8,6 @@ use crate::{OwnedDisplayHandle, Window};
 
 const RECT_HALF: f32 = 0.5;
 
-// ------------------------------------------------------------------------------------------------------- uniform buffer
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Uniforms {
-    pub model_matricx: [[f32; 4]; 4],
-}
-
 // ------------------------------------------------------------------------------------------- data for mid vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -62,11 +55,17 @@ impl MidVertex {
     }
 }
 
+// ------------------------------------------------------------------------------------------------------- uniform buffer
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Uniforms {
+    pub model_matricx: [[f32; 4]; 4],
+}
+
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
 // ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct ScalerVertex {
@@ -490,11 +489,21 @@ impl Renderer {
             multiview_mask: None,
         });
 
+        let vieport_xywh = self.calc_ratio();
+
         // ------------------------------------------------------------------------------------------- use the renderpass
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
         scaler_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        scaler_renderpass.set_viewport(
+            vieport_xywh[0],
+            vieport_xywh[1],
+            vieport_xywh[2],
+            vieport_xywh[3],
+            0.0,
+            1.0,
+        );
         scaler_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
@@ -504,6 +513,31 @@ impl Renderer {
         self.queue.submit([encoder.finish()]);
         self.window.pre_present_notify();
         surface_texture.present();
+    }
+
+    fn calc_ratio(&self) -> [f32; 4] {
+        let mid_w = self.mid_texture_view.texture().size().width;
+        let mid_h = self.mid_texture_view.texture().size().height;
+
+        let surface_w = self.window.inner_size().width;
+        let surface_h = self.window.inner_size().height;
+
+        let mid_ratio = mid_h / mid_w;
+        let surface_ratio = surface_h / surface_w;
+
+        let ratio = if mid_ratio <= surface_ratio {
+            surface_w / mid_w
+        } else {
+            surface_h / mid_h
+        };
+
+        let w = mid_w * ratio;
+        let h = mid_h * ratio;
+
+        let x = (surface_w - w) / 2;
+        let y = (surface_h - h) / 2;
+
+        [x as f32, y as f32, w as f32, h as f32]
     }
 
     pub fn get_window(&self) -> &Window {
