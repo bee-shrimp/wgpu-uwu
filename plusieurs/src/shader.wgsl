@@ -4,6 +4,10 @@ struct Uniforms {
 
 @group(0) @binding(0) 
 var<uniform> uniforms: Uniforms;
+@group(0) @binding(1) 
+var base_texture: texture_2d<f32>;
+@group(0) @binding(2)
+var mid_sampler: sampler;
 
 @group(0) @binding(0)
 var t_diffuse: texture_2d<f32>;
@@ -55,7 +59,9 @@ fn vs_scaler(
 
 @fragment
 fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.colour, 1.0);
+    var base_colour = textureSample(base_texture, mid_sampler, in.uv);
+    var blend = (in.colour.rgb + base_colour.rgb) / 2;
+    return vec4<f32>(blend, 1.0);
 }
 
 @fragment

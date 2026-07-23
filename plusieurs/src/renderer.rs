@@ -6,7 +6,9 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
-const RECT_HALF: f32 = 0.2;
+const RECT_HALF: f32 = 0.25;
+const LOGIC_WIDTH: u32 = 160;
+const LOGIC_HEIGHT: u32 = 144;
 
 // ------------------------------------------------------------------------------------------- data for mid vertex buffer
 #[repr(C)]
@@ -114,6 +116,7 @@ pub struct Renderer {
     surface_format: wgpu::TextureFormat,
     mid_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
+    base_texture_view: wgpu::TextureView,
     mid_texture_view: wgpu::TextureView,
     mid_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
@@ -190,10 +193,33 @@ impl Renderer {
         let cap = surface.get_capabilities(&adapter);
         let surface_format = cap.formats[0];
 
+        // ------------------------------------------------------------------------------------ base texture to draw onto
+        let base_texture_size = wgpu::Extent3d {
+            width: LOGIC_WIDTH,
+            height: LOGIC_HEIGHT,
+            depth_or_array_layers: 1,
+        };
+
+        let base_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("base texture"),
+            size: base_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        // -------------------------------------------------------------------------------------------- base texture view
+        let base_texture_view = base_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         // ------------------------------------------------------------------------------------- mid texture to draw onto
         let mid_texture_size = wgpu::Extent3d {
-            width: 100,
-            height: 100,
+            width: LOGIC_WIDTH,
+            height: LOGIC_HEIGHT,
             depth_or_array_layers: 1,
         };
 
@@ -210,9 +236,10 @@ impl Renderer {
             view_formats: &[],
         });
 
-        // ----------------------------------------------------------------------------------- mid texture view & sampler
+        // --------------------------------------------------------------------------------------------- mid texture view
         let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+        // ------------------------------------------------------------------------------------------------------ sampler
         let sampler_nearest = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -228,32 +255,59 @@ impl Renderer {
         let mid_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("mid bind group layout"),
-                entries: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStages::VERTEX,
-                    ty: wgpu::BindingType::Buffer {
-                        ty: wgpu::BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: wgpu::BufferSize::new(
-                            std::mem::size_of::<Uniforms>() as u64
-                        ),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(
+                                std::mem::size_of::<Uniforms>() as u64,
+                            ),
+                        },
+                        count: None,
                     },
-                    count: None,
-                }],
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
             });
 
         let mid_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("mid bind group"),
             layout: &mid_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                    //----------------------?
-                    buffer: &uniform_buffer,
-                    offset: 0,
-                    size: None,
-                }),
-            }],
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                },
+            ],
         });
 
         // -------------------------------------------------------------------------------------------- scaler bind group
@@ -374,6 +428,7 @@ impl Renderer {
             surface_format,
             mid_bind_group,
             scaler_bind_group,
+            base_texture_view,
             mid_texture_view,
             mid_render_pipeline,
             scaler_render_pipeline,
@@ -442,6 +497,27 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
+        // ------------------------------------------------------------------------------------------ renderpass for base
+        let base_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.base_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ------------------------------------------------------------------------------------------- end the renderpass
+        drop(base_renderpass);
+
         // ------------------------------------------------------------------------------------------- renderpass for mid
         let mut mid_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("mid renderpass"),
@@ -450,7 +526,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -465,7 +541,7 @@ impl Renderer {
         mid_renderpass.set_bind_group(0, Some(&self.mid_bind_group), &[]);
         mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
+        mid_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
@@ -516,11 +592,11 @@ impl Renderer {
     }
 
     fn calc_ratio(&self) -> [f32; 4] {
-        let mid_w = self.mid_texture_view.texture().size().width;
-        let mid_h = self.mid_texture_view.texture().size().height;
+        let mid_w = self.mid_texture_view.texture().size().width as i16;
+        let mid_h = self.mid_texture_view.texture().size().height as i16;
 
-        let surface_w = self.window.inner_size().width;
-        let surface_h = self.window.inner_size().height;
+        let surface_w = self.window.inner_size().width as i16;
+        let surface_h = self.window.inner_size().height as i16;
 
         let mid_ratio = mid_h / mid_w;
         let surface_ratio = surface_h / surface_w;
