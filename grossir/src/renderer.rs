@@ -8,6 +8,8 @@ use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
 const RECT_HALF: f32 = 0.25;
+const LOGIC_WIDTH: u32 = 160;
+const LOGIC_HEIGHT: u32 = 144;
 
 // ------------------------------------------------------------------------------------------- data for mid vertex buffer
 #[repr(C)]
@@ -234,8 +236,8 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------- mid texture to draw onto
         let mid_texture_size = wgpu::Extent3d {
-            width: 100,
-            height: 100,
+            width: LOGIC_WIDTH,
+            height: LOGIC_HEIGHT,
             depth_or_array_layers: 1,
         };
 
@@ -549,7 +551,7 @@ impl Renderer {
         mid_renderpass.set_bind_group(1, &self.diffuse_bind_group, &[]);
         mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
+        mid_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
