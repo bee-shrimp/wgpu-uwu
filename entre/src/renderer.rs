@@ -6,7 +6,7 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
-const RECT_HALF: f32 = 0.5;
+const RECT_HALF: f32 = 0.2;
 
 // ------------------------------------------------------------------------------------------- data for mid vertex buffer
 #[repr(C)]
