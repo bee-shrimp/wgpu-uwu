@@ -15,49 +15,85 @@ pub struct Uniforms {
     pub model_matricx: [[f32; 4]; 4],
 }
 
-// ----------------------------------------------------------------------------------------------- data for vertex buffer
+// ------------------------------------------------------------------------------------------- data for mid vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct Vertex {
+struct MidVertex {
     position: [f32; 3],
     uv: [f32; 2],
     colour: [f32; 3],
 }
 
-const VERTICES: &[Vertex] = &[
-    Vertex {
+const MID_VERTICES: &[MidVertex] = &[
+    MidVertex {
         position: [-RECT_HALF, RECT_HALF, 0.0], // top left
         uv: [0.0, 0.0],
         colour: [1.0, 1.0, 1.0],
     },
-    Vertex {
+    MidVertex {
         position: [-RECT_HALF, -RECT_HALF, 0.0], // bottom left
         uv: [0.0, 1.0],
         colour: [1.0, 1.0, 1.0],
     },
-    Vertex {
+    MidVertex {
         position: [RECT_HALF, RECT_HALF, 0.0], // top right
         uv: [1.0, 0.0],
         colour: [1.0, 1.0, 1.0],
     },
-    Vertex {
+    MidVertex {
         position: [RECT_HALF, -RECT_HALF, 0.0], // bottom rightV
         uv: [1.0, 1.0],
         colour: [1.0, 1.0, 1.0],
     },
 ];
 
+// ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
+impl MidVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 3] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2=>Float32x3];
+    // 0 => MidVertex::position, 1 => MidVertex::uv, 2 => MidVertex::colour
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress, // use std::mem;
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
 // ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-const SCALER_VERTICES: &[[f32; 3]; 3] = &[[-1.0, -1.0, 0.0], [3.0, -1.0, 0.0], [-1.0, 3.0, 0.0]];
 
-// ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
-impl Vertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2=>Float32x3];
-    // 0 => Vertex::position, 1 => Vertex::uv, 2 => Vertex::colour
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+struct ScalerVertex {
+    position: [f32; 2],
+    uv: [f32; 2],
+}
+
+const SCALER_VERTICES: &[ScalerVertex] = &[
+    ScalerVertex {
+        position: [-1.0, -1.0], // bottom left
+        uv: [0.0, 1.0],
+    },
+    ScalerVertex {
+        position: [-1.0, 3.0], // top left outside
+        uv: [0.0, -1.0],
+    },
+    ScalerVertex {
+        position: [3.0, -1.0], // bottom right outside
+        uv: [2.0, 1.0],
+    },
+];
+
+// ----------------------------------------------------------------------------- descriptor for Scaler VertexBufferLayout
+impl ScalerVertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+    // 0 => ScalerVertex::position, 1 => ScalerVertex::uv
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -82,7 +118,8 @@ pub struct Renderer {
     mid_texture_view: wgpu::TextureView,
     mid_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
+    mid_vertex_buffer: wgpu::Buffer,
+    scaler_vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
     uniform_buffer: wgpu::Buffer,
@@ -116,10 +153,17 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        // ------------------------------------------------------------------------------------------------ vertex buffer
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
+        // -------------------------------------------------------------------------------------------- mid vertex buffer
+        let mid_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("mid vertex buffer"),
+            contents: bytemuck::cast_slice(MID_VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        // ----------------------------------------------------------------------------------------- scaler vertex buffer
+        let scaler_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("scaler vertex buffer"),
+            contents: bytemuck::cast_slice(SCALER_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -265,7 +309,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_mid"),
-                buffers: &[Vertex::desc()],
+                buffers: &[MidVertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -303,7 +347,7 @@ impl Renderer {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: Some("vs_scaler"),
-                    buffers: &[Vertex::desc()],
+                    buffers: &[ScalerVertex::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
@@ -334,7 +378,8 @@ impl Renderer {
             mid_texture_view,
             mid_render_pipeline,
             scaler_render_pipeline,
-            vertex_buffer,
+            mid_vertex_buffer,
+            scaler_vertex_buffer,
             index_buffer,
             num_indices,
             uniform_buffer,
@@ -362,7 +407,7 @@ impl Renderer {
     }
 
     pub fn render(&mut self) {
-        // ------------------------------------------------------------------------------------------ create texture view
+        // ---------------------------------------------------------------------------------- create surface texture view
         // NOTE: We must handle Timeout because the surface may be unavailable
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
@@ -398,7 +443,7 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
-        // ------------------------------------------------------------------------------- TODO create renderpass for mid
+        // ------------------------------------------------------------------------------------------- renderpass for mid
         let mut mid_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("mid renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -419,7 +464,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- use the renderpass
         mid_renderpass.set_pipeline(&self.mid_render_pipeline);
         mid_renderpass.set_bind_group(0, Some(&self.mid_bind_group), &[]);
-        mid_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
@@ -427,7 +472,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(mid_renderpass);
 
-        // ------------------------------------------------------------------------------------------ create a renderpass for surface
+        // --------------------------------------------------------------------------------------- renderpass for surface
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -448,9 +493,9 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- use the renderpass
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
-        scaler_renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
         scaler_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        scaler_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
+        scaler_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(scaler_renderpass);

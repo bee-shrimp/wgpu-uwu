@@ -10,10 +10,15 @@ var t_diffuse: texture_2d<f32>;
 @group(0) @binding(1)
 var s_diffuse: sampler;
 
-struct VertexInput {
+struct MidVertexInput {
     @location(0) position: vec3<f32>,
     @location(1) uv: vec2<f32>,
     @location(2) colour: vec3<f32>,
+};
+
+struct ScalerVertexInput {
+    @location(0) position: vec2<f32>,
+    @location(1) uv: vec2<f32>,
 };
 
 struct VertexOutput {
@@ -25,7 +30,7 @@ struct VertexOutput {
 
 @vertex
 fn vs_mid(
-    model: VertexInput,
+    model: MidVertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
 
@@ -36,7 +41,7 @@ fn vs_mid(
 
 @vertex
 fn vs_scaler(
-    model: VertexInput
+    model: ScalerVertexInput
 ) -> VertexOutput {
     var out: VertexOutput;
 
@@ -45,7 +50,6 @@ fn vs_scaler(
     out.position = vec4(pos, 0.0, 1.0);
     out.uv = model.uv;
     out.pos = pos;
-    out.colour = model.colour;
     return out;
 }
 
