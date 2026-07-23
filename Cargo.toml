@@ -2,7 +2,7 @@
 members = [
 "bleu", 
 "carre", 
-"couleur", "entre", "flou", "grand", "gris", "image", "milieu", 
+"couleur", "entre", "flou", "grand", "gris", "grossir", "image", 
 "nombreux", "tourner",
 "triangle"]
 
