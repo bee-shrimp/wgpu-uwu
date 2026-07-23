@@ -13,25 +13,25 @@ const RECT_HALF: f32 = 0.25;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct MidVertex {
-    position: [f32; 3],
+    position: [f32; 2],
     uv: [f32; 2],
 }
 
 const MID_VERTICES: &[MidVertex] = &[
     MidVertex {
-        position: [-RECT_HALF, RECT_HALF, 0.0], // top left
+        position: [-RECT_HALF, RECT_HALF], // top left
         uv: [0.0, 0.0],
     },
     MidVertex {
-        position: [-RECT_HALF, -RECT_HALF, 0.0], // bottom left
+        position: [-RECT_HALF, -RECT_HALF], // bottom left
         uv: [0.0, 1.0],
     },
     MidVertex {
-        position: [RECT_HALF, RECT_HALF, 0.0], // top right
+        position: [RECT_HALF, RECT_HALF], // top right
         uv: [1.0, 0.0],
     },
     MidVertex {
-        position: [RECT_HALF, -RECT_HALF, 0.0], // bottom rightV
+        position: [RECT_HALF, -RECT_HALF], // bottom rightV
         uv: [1.0, 1.0],
     },
 ];
@@ -39,7 +39,7 @@ const MID_VERTICES: &[MidVertex] = &[
 // ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
 impl MidVertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
     // 0 => MidVertex::position, 1 => MidVertex::uv
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
@@ -533,7 +533,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -563,7 +563,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
                     store: wgpu::StoreOp::Store,
                 },
             })],
