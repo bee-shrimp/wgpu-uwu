@@ -220,3 +220,24 @@ what i learnt:
 
 - how to make and use even more bind group/pipeline/renderpass.  
 
+## plusieurs
+
+what it does:  
+
+- clear the window with black.  
+- draw a colourful rectangle inside a navy rectangle.  
+- draw a small half transparent white rectangle.  
+- small rect moves with keyboard inputs.  
+
+how it works:
+
+- has 4 textures and 4 pipelimes.
+    - base: clear with black and draw colourful rect.  
+    - mid: clear with blue and draw white rect.  
+    - blend: sample and blend base and mid.  
+    - scaler: sample blend and make it bigger.  
+
+what i learnt:
+
+- how to chain multipul renderpasses.  
+
