@@ -78,7 +78,7 @@ const MID_VERTICES: &[Vertex] = &[
 
 // ---------------------------------------------------------------------------------------- data for scaler vertex buffer
 
-const SCALER_VERTICES: &[Vertex] = &[
+const FULLSCREEN_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left
         uv: [0.0, 1.0],
@@ -122,12 +122,15 @@ pub struct Renderer {
 
     base_texture_view: wgpu::TextureView,
     mid_texture_view: wgpu::TextureView,
+    blend_texture_view: wgpu::TextureView,
 
     mid_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
+    blend_bind_group: wgpu::BindGroup,
 
     base_render_pipeline: wgpu::RenderPipeline,
     mid_render_pipeline: wgpu::RenderPipeline,
+    blend_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
 }
 
@@ -176,7 +179,7 @@ impl Renderer {
         // ----------------------------------------------------------------------------------------- scaler vertex buffer
         let scaler_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("scaler vertex buffer"),
-            contents: bytemuck::cast_slice(SCALER_VERTICES),
+            contents: bytemuck::cast_slice(FULLSCREEN_VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
@@ -261,21 +264,73 @@ impl Renderer {
             ..Default::default()
         });
 
+        // ----------------------------------------------------------------------------------- blend texture to draw onto
+        let blend_texture_size = wgpu::Extent3d {
+            width: LOGIC_WIDTH,
+            height: LOGIC_HEIGHT,
+            depth_or_array_layers: 1,
+        };
+
+        let blend_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("blend texture"),
+            size: blend_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        // -------------------------------------------------------------------------------------------- blend texture view
+        let blend_texture_view = blend_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         // ----------------------------------------------------------------------------------------------- mid bind group
 
         let mid_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("mid bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: wgpu::BufferSize::new(
+                            std::mem::size_of::<Uniforms>() as u64
+                        ),
+                    },
+                    count: None,
+                }],
+            });
+
+        let mid_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("mid bind group"),
+            layout: &mid_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                    buffer: &uniform_buffer,
+                    offset: 0,
+                    size: None,
+                }),
+            }],
+        });
+
+        // -------------------------------------------------------------------------------------------- blend bind group
+        let blend_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("blend bind group layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: wgpu::BufferSize::new(
-                                std::mem::size_of::<Uniforms>() as u64,
-                            ),
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
                         },
                         count: None,
                     },
@@ -298,21 +353,17 @@ impl Renderer {
                 ],
             });
 
-        let mid_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("mid bind group"),
-            layout: &mid_bind_group_layout,
+        let blend_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("blend bind group"),
+            layout: &blend_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &uniform_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
+                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&mid_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -351,7 +402,7 @@ impl Renderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&mid_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&blend_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -426,6 +477,41 @@ impl Renderer {
             cache: None,
         });
 
+        // --------------------------------------------------------------------- pipeline to sample base and mid to blend
+        let blend_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("render pipeline layout for blend texture"),
+                bind_group_layouts: &[Some(&blend_bind_group_layout)],
+                immediate_size: 0,
+            });
+
+        let blend_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("render pipeline for surface"),
+                layout: Some(&blend_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_blend"),
+                    buffers: &[Vertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_blend"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            });
+
         // --------------------------------------------------------- final pipeline to sample mid and draw on the surface
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -480,12 +566,15 @@ impl Renderer {
 
             base_texture_view,
             mid_texture_view,
+            blend_texture_view,
 
             mid_bind_group,
+            blend_bind_group,
             scaler_bind_group,
 
             base_render_pipeline,
             mid_render_pipeline,
+            blend_render_pipeline,
             scaler_render_pipeline,
         };
 
@@ -581,7 +670,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -601,6 +690,34 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(mid_renderpass);
+
+        // ----------------------------------------------------------------------------------------- renderpass for blend
+        let mut blend_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("blend renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.blend_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ------------------------------------------------------------------------------------------- use the renderpass
+        blend_renderpass.set_pipeline(&self.blend_render_pipeline);
+        blend_renderpass.set_bind_group(0, Some(&self.blend_bind_group), &[]);
+        blend_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
+        blend_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
+        blend_renderpass.draw(0..3, 0..1);
+
+        // ------------------------------------------------------------------------------------------- end the renderpass
+        drop(blend_renderpass);
 
         // --------------------------------------------------------------------------------------- renderpass for surface
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

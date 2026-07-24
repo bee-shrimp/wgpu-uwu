@@ -6,14 +6,18 @@ struct Uniforms {
 
 @group(0) @binding(0) 
 var<uniform> uniforms: Uniforms;
-@group(0) @binding(1) 
+
+// ------------------------------------------- bind for blend
+@group(0) @binding(0)
 var base_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var mid_texture: texture_2d<f32>;
 @group(0) @binding(2)
-var mid_sampler: sampler;
+var blend_sampler: sampler;
 
 // ------------------------------------------- bind for scaler
 @group(0) @binding(0)
-var mid_texture: texture_2d<f32>;
+var blend_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var scaler_sampler: sampler;
 
@@ -56,6 +60,21 @@ fn vs_mid(
     return out;
 }
 
+// ------------------------------------------- vs for blend
+@vertex
+fn vs_blend(
+    model: VertexInput
+) -> VertexOutput {
+    var out: VertexOutput;
+
+    var pos = model.position.xy;
+
+    out.position = vec4(pos, 0.0, 1.0);
+    out.uv = model.uv;
+    out.pos = pos;
+    return out;
+}
+
 // ------------------------------------------- vs for scaler
 @vertex
 fn vs_scaler(
@@ -80,14 +99,21 @@ fn fs_base(in: VertexOutput) -> @location(0) vec4<f32> {
 // ------------------------------------------- fs for mid
 @fragment
 fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
-    var base_colour = textureSample(base_texture, mid_sampler, in.uv);
-    var blend = (in.colour.rgb + base_colour.rgb) / 2;
-    return vec4<f32>(blend, 1.0);
+    return vec4<f32>(in.colour, 1.0);
 }
 
+// ------------------------------------------- fs for blend
+@fragment
+fn fs_blend(in: VertexOutput) -> @location(0) vec4<f32> {
+    var base_colour = textureSample(base_texture, blend_sampler, in.uv);
+    var mid_colour = textureSample(mid_texture, blend_sampler, in.uv);
+    var blend = (base_colour.rgb + mid_colour.rgb) / 2;
+    return vec4<f32>(blend, 1.0);
+}
 // ------------------------------------------- fs for scaler
 @fragment
 fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(mid_texture, scaler_sampler, in.uv);
+    return textureSample(blend_texture, scaler_sampler, in.uv);
 }
+
 
