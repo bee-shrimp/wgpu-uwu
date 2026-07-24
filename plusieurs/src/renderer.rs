@@ -10,7 +10,15 @@ const RECT_HALF: f32 = 0.25;
 const LOGIC_WIDTH: u32 = 160;
 const LOGIC_HEIGHT: u32 = 144;
 
-//TODO add vertex_buffer/pipeline/draw for base texture
+// ------------------------------------------------------------------------------------------------------- uniform buffer
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Uniforms {
+    pub model_matricx: [[f32; 4]; 4],
+}
+
+// ------------------------------------------------------------------------------------------------ data for index buffer
+const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
 // --------------------------------------------------------------------------------------------- struct for vertex buffer
 #[repr(C)]
@@ -28,7 +36,7 @@ impl Vertex {
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress, // use std::mem;
+            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &Self::ATTRIBS,
         }
@@ -76,8 +84,7 @@ const MID_VERTICES: &[Vertex] = &[
     },
 ];
 
-// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-
+// ------------------------------------------------------------------------------ data for blend and scaler vertex buffer
 const FULLSCREEN_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left
@@ -93,16 +100,6 @@ const FULLSCREEN_VERTICES: &[Vertex] = &[
     },
 ];
 
-// ------------------------------------------------------------------------------------------------------- uniform buffer
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Uniforms {
-    pub model_matricx: [[f32; 4]; 4],
-}
-
-// ------------------------------------------------------------------------------------------------ data for index buffer
-const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
-
 // ------------------------------------------------------------------------------------------------------- renderer state
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -113,12 +110,13 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
 
+    uniform_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
+
     base_vertex_buffer: wgpu::Buffer,
     mid_vertex_buffer: wgpu::Buffer,
     scaler_vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    uniform_buffer: wgpu::Buffer,
-    num_indices: u32,
 
     base_texture_view: wgpu::TextureView,
     mid_texture_view: wgpu::TextureView,
@@ -162,7 +160,27 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
         });
 
-        // ----------------------------------------------------------------------------------------- base vertex buffer
+        // ----------------------------------------------------------------------------------------------- uniform buffer
+        let initial_uniforms = Uniforms {
+            model_matricx: Mat4::IDENTITY.to_cols_array_2d(),
+        };
+
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("uniform buffer"),
+            contents: bytemuck::cast_slice(&[initial_uniforms]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        // ------------------------------------------------------------------------------------------------- index buffer
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let num_indices = INDICES.len() as u32;
+
+        // ------------------------------------------------------------------------------------------- base vertex buffer
         let base_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("base vertex buffer"),
             contents: bytemuck::cast_slice(BASE_VERTICES),
@@ -183,25 +201,6 @@ impl Renderer {
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        // ------------------------------------------------------------------------------------------------- index buffer
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let num_indices = INDICES.len() as u32;
-
-        // ----------------------------------------------------------------------------------------------- uniform buffer
-        let initial_uniforms = Uniforms {
-            model_matricx: Mat4::IDENTITY.to_cols_array_2d(),
-        };
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer"),
-            contents: bytemuck::cast_slice(&[initial_uniforms]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
         // ----------------------------------------------------------------------------------------- surface to draw onto
         let surface = instance.create_surface(window.clone()).unwrap();
         let cap = surface.get_capabilities(&adapter);
@@ -411,7 +410,7 @@ impl Renderer {
             ],
         });
 
-        // ------------------------------------------------------------------------------------------------- base pipeline
+        // ------------------------------------------------------------------------------------------------ base pipeline
         let base_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout for base texture"),
             bind_group_layouts: &[],
@@ -429,7 +428,7 @@ impl Renderer {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: Some("fs_base"),
+                entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -462,7 +461,7 @@ impl Renderer {
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: Some("fs_mid"),
+                entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -491,7 +490,7 @@ impl Renderer {
                 layout: Some(&blend_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
-                    entry_point: Some("vs_blend"),
+                    entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
@@ -529,7 +528,7 @@ impl Renderer {
                 layout: Some(&scaler_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
-                    entry_point: Some("vs_scaler"),
+                    entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
@@ -560,9 +559,10 @@ impl Renderer {
             base_vertex_buffer,
             mid_vertex_buffer,
             scaler_vertex_buffer,
+
+            uniform_buffer,
             index_buffer,
             num_indices,
-            uniform_buffer,
 
             base_texture_view,
             mid_texture_view,
@@ -644,7 +644,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::GREEN),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],

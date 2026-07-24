@@ -1,4 +1,3 @@
-
 // ------------------------------------------- bind for mid
 struct Uniforms {
     model_matrix: mat4x4<f32>,
@@ -41,7 +40,8 @@ fn vs_base(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    out.colour = vec3<f32>(1.0, 0.0, 0.0);
+    out.colour = vec3<f32>(model.uv.x, model.uv.y, 1.0);
+
     out.position = vec4<f32>(model.position.xy, 0.0, 1.0);
     out.uv = model.uv;
     return out;
@@ -60,9 +60,9 @@ fn vs_mid(
     return out;
 }
 
-// ------------------------------------------- vs for blend
+// ------------------------------------------- vs for blend and scaler
 @vertex
-fn vs_blend(
+fn vs_main(
     model: VertexInput
 ) -> VertexOutput {
     var out: VertexOutput;
@@ -75,30 +75,9 @@ fn vs_blend(
     return out;
 }
 
-// ------------------------------------------- vs for scaler
-@vertex
-fn vs_scaler(
-    model: VertexInput
-) -> VertexOutput {
-    var out: VertexOutput;
-
-    var pos = model.position.xy;
-
-    out.position = vec4(pos, 0.0, 1.0);
-    out.uv = model.uv;
-    out.pos = pos;
-    return out;
-}
-
-// ------------------------------------------- fs for base
+// ------------------------------------------- fs for base and mid
 @fragment
-fn fs_base(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.colour, 1.0);
-}
-
-// ------------------------------------------- fs for mid
-@fragment
-fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(in.colour, 1.0);
 }
 
@@ -110,6 +89,7 @@ fn fs_blend(in: VertexOutput) -> @location(0) vec4<f32> {
     var blend = (base_colour.rgb + mid_colour.rgb) / 2;
     return vec4<f32>(blend, 1.0);
 }
+
 // ------------------------------------------- fs for scaler
 @fragment
 fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
