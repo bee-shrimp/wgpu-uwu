@@ -743,7 +743,6 @@ impl Renderer {
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
-        scaler_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         scaler_renderpass.set_viewport(
             vieport_xywh[0],
             vieport_xywh[1],
@@ -764,11 +763,11 @@ impl Renderer {
     }
 
     fn calc_ratio(&self) -> [f32; 4] {
-        let mid_w = self.mid_texture_view.texture().size().width as i16;
-        let mid_h = self.mid_texture_view.texture().size().height as i16;
+        let mid_w = self.mid_texture_view.texture().size().width as f32;
+        let mid_h = self.mid_texture_view.texture().size().height as f32;
 
-        let surface_w = self.window.inner_size().width as i16;
-        let surface_h = self.window.inner_size().height as i16;
+        let surface_w = self.window.inner_size().width as f32;
+        let surface_h = self.window.inner_size().height as f32;
 
         let mid_ratio = mid_h / mid_w;
         let surface_ratio = surface_h / surface_w;
@@ -782,10 +781,10 @@ impl Renderer {
         let w = mid_w * ratio;
         let h = mid_h * ratio;
 
-        let x = (surface_w - w) / 2;
-        let y = (surface_h - h) / 2;
+        let x = (surface_w - w) / 2.0;
+        let y = (surface_h - h) / 2.0;
 
-        [x as f32, y as f32, w as f32, h as f32]
+        [x, y, w, h]
     }
 
     pub fn get_window(&self) -> &Window {
