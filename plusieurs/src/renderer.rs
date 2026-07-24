@@ -10,43 +10,21 @@ const RECT_HALF: f32 = 0.25;
 const LOGIC_WIDTH: u32 = 160;
 const LOGIC_HEIGHT: u32 = 144;
 
-// ------------------------------------------------------------------------------------------- data for mid vertex buffer
+//TODO add vertex_buffer/pipeline/draw for base texture
+
+// --------------------------------------------------------------------------------------------- struct for vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct MidVertex {
-    position: [f32; 3],
+struct Vertex {
+    position: [f32; 2],
     uv: [f32; 2],
-    colour: [f32; 3],
 }
 
-const MID_VERTICES: &[MidVertex] = &[
-    MidVertex {
-        position: [-RECT_HALF, RECT_HALF, 0.0], // top left
-        uv: [0.0, 0.0],
-        colour: [1.0, 1.0, 1.0],
-    },
-    MidVertex {
-        position: [-RECT_HALF, -RECT_HALF, 0.0], // bottom left
-        uv: [0.0, 1.0],
-        colour: [1.0, 1.0, 1.0],
-    },
-    MidVertex {
-        position: [RECT_HALF, RECT_HALF, 0.0], // top right
-        uv: [1.0, 0.0],
-        colour: [1.0, 1.0, 1.0],
-    },
-    MidVertex {
-        position: [RECT_HALF, -RECT_HALF, 0.0], // bottom rightV
-        uv: [1.0, 1.0],
-        colour: [1.0, 1.0, 1.0],
-    },
-];
-
 // ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
-impl MidVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 3] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2, 2=>Float32x3];
-    // 0 => MidVertex::position, 1 => MidVertex::uv, 2 => MidVertex::colour
+impl Vertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
+    // 0 => Vertex::position, 1 => Vertex::uv
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
@@ -56,6 +34,64 @@ impl MidVertex {
         }
     }
 }
+
+// ------------------------------------------------------------------------------------------ data for base vertex buffer
+
+const BASE_VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.5, 0.5], // top left
+        uv: [0.0, 0.0],
+    },
+    Vertex {
+        position: [-0.5, -0.5], // bottom left
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        position: [0.5, 0.5], // top right
+        uv: [1.0, 0.0],
+    },
+    Vertex {
+        position: [0.5, -0.5], // bottom rightV
+        uv: [1.0, 1.0],
+    },
+];
+
+// ------------------------------------------------------------------------------------------- data for mid vertex buffer
+const MID_VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-RECT_HALF, RECT_HALF], // top left
+        uv: [0.0, 0.0],
+    },
+    Vertex {
+        position: [-RECT_HALF, -RECT_HALF], // bottom left
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        position: [RECT_HALF, RECT_HALF], // top right
+        uv: [1.0, 0.0],
+    },
+    Vertex {
+        position: [RECT_HALF, -RECT_HALF], // bottom rightV
+        uv: [1.0, 1.0],
+    },
+];
+
+// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
+
+const SCALER_VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-1.0, -1.0], // bottom left
+        uv: [0.0, 1.0],
+    },
+    Vertex {
+        position: [-1.0, 3.0], // top left outside
+        uv: [0.0, -1.0],
+    },
+    Vertex {
+        position: [3.0, -1.0], // bottom right outside
+        uv: [2.0, 1.0],
+    },
+];
 
 // ------------------------------------------------------------------------------------------------------- uniform buffer
 #[repr(C)]
@@ -67,44 +103,6 @@ pub struct Uniforms {
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
-// ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-struct ScalerVertex {
-    position: [f32; 2],
-    uv: [f32; 2],
-}
-
-const SCALER_VERTICES: &[ScalerVertex] = &[
-    ScalerVertex {
-        position: [-1.0, -1.0], // bottom left
-        uv: [0.0, 1.0],
-    },
-    ScalerVertex {
-        position: [-1.0, 3.0], // top left outside
-        uv: [0.0, -1.0],
-    },
-    ScalerVertex {
-        position: [3.0, -1.0], // bottom right outside
-        uv: [2.0, 1.0],
-    },
-];
-
-// ----------------------------------------------------------------------------- descriptor for Scaler VertexBufferLayout
-impl ScalerVertex {
-    const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
-    // 0 => ScalerVertex::position, 1 => ScalerVertex::uv
-
-    fn desc() -> wgpu::VertexBufferLayout<'static> {
-        wgpu::VertexBufferLayout {
-            array_stride: mem::size_of::<Self>() as wgpu::BufferAddress, // use std::mem;
-            step_mode: wgpu::VertexStepMode::Vertex,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
 // ------------------------------------------------------------------------------------------------------- renderer state
 pub struct Renderer {
     instance: wgpu::Instance,
@@ -114,17 +112,23 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
-    mid_bind_group: wgpu::BindGroup,
-    scaler_bind_group: wgpu::BindGroup,
-    base_texture_view: wgpu::TextureView,
-    mid_texture_view: wgpu::TextureView,
-    mid_render_pipeline: wgpu::RenderPipeline,
-    scaler_render_pipeline: wgpu::RenderPipeline,
+
+    base_vertex_buffer: wgpu::Buffer,
     mid_vertex_buffer: wgpu::Buffer,
     scaler_vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
-    num_indices: u32,
     uniform_buffer: wgpu::Buffer,
+    num_indices: u32,
+
+    base_texture_view: wgpu::TextureView,
+    mid_texture_view: wgpu::TextureView,
+
+    mid_bind_group: wgpu::BindGroup,
+    scaler_bind_group: wgpu::BindGroup,
+
+    base_render_pipeline: wgpu::RenderPipeline,
+    mid_render_pipeline: wgpu::RenderPipeline,
+    scaler_render_pipeline: wgpu::RenderPipeline,
 }
 
 impl Renderer {
@@ -153,6 +157,13 @@ impl Renderer {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
+        });
+
+        // ----------------------------------------------------------------------------------------- base vertex buffer
+        let base_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("base vertex buffer"),
+            contents: bytemuck::cast_slice(BASE_VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
         // -------------------------------------------------------------------------------------------- mid vertex buffer
@@ -349,6 +360,39 @@ impl Renderer {
             ],
         });
 
+        // ------------------------------------------------------------------------------------------------- base pipeline
+        let base_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("render pipeline layout for base texture"),
+            bind_group_layouts: &[],
+            immediate_size: 0,
+        });
+
+        let base_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("render pipeline for base texture"),
+            layout: Some(&base_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_base"),
+                buffers: &[Vertex::desc()],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_base"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
+
         // ------------------------------------------------------------------------------------------------- mid pipeline
         let mid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout for mid texture"),
@@ -362,7 +406,7 @@ impl Renderer {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_mid"),
-                buffers: &[MidVertex::desc()],
+                buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -400,7 +444,7 @@ impl Renderer {
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: Some("vs_scaler"),
-                    buffers: &[ScalerVertex::desc()],
+                    buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
@@ -426,17 +470,23 @@ impl Renderer {
             size,
             surface,
             surface_format,
-            mid_bind_group,
-            scaler_bind_group,
-            base_texture_view,
-            mid_texture_view,
-            mid_render_pipeline,
-            scaler_render_pipeline,
+
+            base_vertex_buffer,
             mid_vertex_buffer,
             scaler_vertex_buffer,
             index_buffer,
             num_indices,
             uniform_buffer,
+
+            base_texture_view,
+            mid_texture_view,
+
+            mid_bind_group,
+            scaler_bind_group,
+
+            base_render_pipeline,
+            mid_render_pipeline,
+            scaler_render_pipeline,
         };
 
         // ------------------------------------------------------------------------- configure surface for the first time
@@ -498,7 +548,7 @@ impl Renderer {
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
         // ------------------------------------------------------------------------------------------ renderpass for base
-        let base_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut base_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &self.base_texture_view,
@@ -516,6 +566,11 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------------- end the renderpass
+        base_renderpass.set_pipeline(&self.base_render_pipeline);
+        base_renderpass.set_vertex_buffer(0, self.base_vertex_buffer.slice(..));
+        base_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        base_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
+        base_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
         drop(base_renderpass);
 
         // ------------------------------------------------------------------------------------------- renderpass for mid

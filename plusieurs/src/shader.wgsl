@@ -1,3 +1,5 @@
+
+// ------------------------------------------- bind for mid
 struct Uniforms {
     model_matrix: mat4x4<f32>,
 };
@@ -9,18 +11,14 @@ var base_texture: texture_2d<f32>;
 @group(0) @binding(2)
 var mid_sampler: sampler;
 
+// ------------------------------------------- bind for scaler
 @group(0) @binding(0)
-var t_diffuse: texture_2d<f32>;
+var mid_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var s_diffuse: sampler;
+var scaler_sampler: sampler;
 
-struct MidVertexInput {
-    @location(0) position: vec3<f32>,
-    @location(1) uv: vec2<f32>,
-    @location(2) colour: vec3<f32>,
-};
-
-struct ScalerVertexInput {
+// ------------------------------------------- vertex struct for both
+struct VertexInput {
     @location(0) position: vec2<f32>,
     @location(1) uv: vec2<f32>,
 };
@@ -32,20 +30,36 @@ struct VertexOutput {
     @location(2) colour: vec3<f32>,
 };
 
+// ------------------------------------------- vs for base
 @vertex
-fn vs_mid(
-    model: MidVertexInput,
+fn vs_base(
+    model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    out.colour = model.colour;
-    out.position = uniforms.model_matrix * vec4<f32>(model.position.xy, 0.0, 1.0);
+    out.colour = vec3<f32>(1.0, 0.0, 0.0);
+    out.position = vec4<f32>(model.position.xy, 0.0, 1.0);
+    out.uv = model.uv;
     return out;
 }
 
+// ------------------------------------------- vs for mid
+@vertex
+fn vs_mid(
+    model: VertexInput,
+) -> VertexOutput {
+    var out: VertexOutput;
+
+    out.colour = vec3<f32>(1.0, 1.0, 1.0);
+    out.position = uniforms.model_matrix * vec4<f32>(model.position.xy, 0.0, 1.0);
+    out.uv = model.uv;
+    return out;
+}
+
+// ------------------------------------------- vs for scaler
 @vertex
 fn vs_scaler(
-    model: ScalerVertexInput
+    model: VertexInput
 ) -> VertexOutput {
     var out: VertexOutput;
 
@@ -57,6 +71,13 @@ fn vs_scaler(
     return out;
 }
 
+// ------------------------------------------- fs for base
+@fragment
+fn fs_base(in: VertexOutput) -> @location(0) vec4<f32> {
+    return vec4<f32>(in.colour, 1.0);
+}
+
+// ------------------------------------------- fs for mid
 @fragment
 fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
     var base_colour = textureSample(base_texture, mid_sampler, in.uv);
@@ -64,8 +85,9 @@ fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
     return vec4<f32>(blend, 1.0);
 }
 
+// ------------------------------------------- fs for scaler
 @fragment
 fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(t_diffuse, s_diffuse, in.uv);
+    return textureSample(mid_texture, scaler_sampler, in.uv);
 }
 
