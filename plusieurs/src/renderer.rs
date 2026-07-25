@@ -47,19 +47,15 @@ impl Vertex {
 
 const BASE_VERTICES: &[Vertex] = &[
     Vertex {
-        position: [-0.5, 0.5], // top left
+        position: [0.0, 0.75], // top
         uv: [0.0, 0.0],
     },
     Vertex {
-        position: [-0.5, -0.5], // bottom left
+        position: [-0.75, -0.75], // bottom left
         uv: [0.0, 1.0],
     },
     Vertex {
-        position: [0.5, 0.5], // top right
-        uv: [1.0, 0.0],
-    },
-    Vertex {
-        position: [0.5, -0.5], // bottom rightV
+        position: [0.75, -0.75], // bottom rightV
         uv: [1.0, 1.0],
     },
 ];
@@ -657,9 +653,8 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         base_renderpass.set_pipeline(&self.base_render_pipeline);
         base_renderpass.set_vertex_buffer(0, self.base_vertex_buffer.slice(..));
-        base_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         base_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
-        base_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
+        base_renderpass.draw(0..3, 0..1);
         drop(base_renderpass);
 
         // ------------------------------------------------------------------------------------------- renderpass for mid
@@ -670,7 +665,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                     store: wgpu::StoreOp::Store,
                 },
             })],

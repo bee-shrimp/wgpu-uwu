@@ -30,7 +30,7 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) pos: vec2<f32>,
-    @location(2) colour: vec3<f32>,
+    @location(2) rgba: vec4<f32>,
 };
 
 // ------------------------------------------- vs for base
@@ -40,7 +40,7 @@ fn vs_base(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    out.colour = vec3<f32>(model.uv.x, model.uv.y, 1.0);
+    out.rgba = vec4<f32>(model.uv.x, model.uv.y / 2.0, 1.0, 1.0);
 
     out.position = vec4<f32>(model.position.xy, 0.0, 1.0);
     out.uv = model.uv;
@@ -54,7 +54,7 @@ fn vs_mid(
 ) -> VertexOutput {
     var out: VertexOutput;
 
-    out.colour = vec3<f32>(1.0, 1.0, 1.0);
+    out.rgba = vec4<f32>(1.0, 1.0, 1.0, 0.75);
     out.position = uniforms.model_matrix * vec4<f32>(model.position.xy, 0.0, 1.0);
     out.uv = model.uv;
     return out;
@@ -78,7 +78,7 @@ fn vs_main(
 // ------------------------------------------- fs for base and mid
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.colour, 1.0);
+    return vec4<f32>(in.rgba);
 }
 
 // ------------------------------------------- fs for blend
@@ -86,7 +86,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 fn fs_blend(in: VertexOutput) -> @location(0) vec4<f32> {
     var base_colour = textureSample(base_texture, blend_sampler, in.uv);
     var mid_colour = textureSample(mid_texture, blend_sampler, in.uv);
-    var blend = (base_colour.rgb + mid_colour.rgb) / 2;
+    var blend = (base_colour.rgb * (1.0 - mid_colour.a) + mid_colour.rgb * mid_colour.a);
     return vec4<f32>(blend, 1.0);
 }
 
