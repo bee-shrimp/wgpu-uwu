@@ -97,7 +97,7 @@ pub struct Renderer {
     scaler_vertex_buffer: wgpu::Buffer,
 
     mid_texture_view: wgpu::TextureView,
-    blend_texture_view: wgpu::TextureView,
+    scaler_texture_view: wgpu::TextureView,
 
     diffuse_bind_group: wgpu::BindGroup,
     blend_bind_group: wgpu::BindGroup,
@@ -291,15 +291,15 @@ impl Renderer {
         let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // ----------------------------------------------------------------------------------- blend texture to draw onto
-        let blend_texture_size = wgpu::Extent3d {
-            width: LOGIC_WIDTH,
-            height: LOGIC_HEIGHT,
+        let scaler_texture_size = wgpu::Extent3d {
+            width: size.width,
+            height: size.height,
             depth_or_array_layers: 1,
         };
 
-        let blend_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("blend texture"),
-            size: blend_texture_size,
+        let scaler_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("scaler texture"),
+            size: scaler_texture_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -311,7 +311,47 @@ impl Renderer {
         });
 
         // -------------------------------------------------------------------------------------------- blend texture view
-        let blend_texture_view = blend_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let scaler_texture_view =
+            scaler_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+        // -------------------------------------------------------------------------------------------- scaler bind group
+        let scaler_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("scaler bind group"),
+            layout: &scaler_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&mid_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                },
+            ],
+        });
 
         // -------------------------------------------------------------------------------------------- blend bind group
         let blend_bind_group_layout =
@@ -363,49 +403,10 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&mid_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&scaler_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
-                },
-            ],
-        });
-
-        // -------------------------------------------------------------------------------------------- scaler bind group
-        let scaler_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
-
-        let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("scaler bind group"),
-            layout: &scaler_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&blend_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
                     resource: wgpu::BindingResource::Sampler(&sampler_nearest),
                 },
             ],
@@ -444,41 +445,6 @@ impl Renderer {
             cache: None,
         });
 
-        // ------------------------------------------------------------------------ pipeline to sample mid and add effect
-        let blend_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("render pipeline layout for blend texture"),
-                bind_group_layouts: &[Some(&blend_bind_group_layout)],
-                immediate_size: 0,
-            });
-
-        let blend_render_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("render pipeline for blend"),
-                layout: Some(&blend_pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: Some("vs_main"),
-                    buffers: &[Vertex::desc()],
-                    compilation_options: Default::default(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: Some("fs_blend"),
-                    compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview_mask: None,
-                cache: None,
-            });
-
         // ------------------------------------------------------ final pipeline to sample effect and draw on the surface
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -486,9 +452,6 @@ impl Renderer {
                 bind_group_layouts: &[Some(&scaler_bind_group_layout)],
                 immediate_size: 0,
             });
-
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
 
         let scaler_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -503,6 +466,44 @@ impl Renderer {
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: Some("fs_scaler"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            });
+
+        // ------------------------------------------------------------------------ pipeline to sample mid and add effect
+        let blend_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("render pipeline layout for blend texture"),
+                bind_group_layouts: &[Some(&blend_bind_group_layout)],
+                immediate_size: 0,
+            });
+
+        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let swapchain_format = swapchain_capabilities.formats[0];
+
+        let blend_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("render pipeline for blend"),
+                layout: Some(&blend_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[Vertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_blend"),
                     compilation_options: Default::default(),
                     targets: &[Some(swapchain_format.into())],
                 }),
@@ -532,7 +533,7 @@ impl Renderer {
             num_indices,
 
             mid_texture_view,
-            blend_texture_view,
+            scaler_texture_view,
 
             diffuse_bind_group,
             blend_bind_group,
@@ -600,6 +601,8 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
+        let vieport_xywh = self.calc_ratio();
+
         // ------------------------------------------------------------------------------------------- renderpass for mid
         let mut mid_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("mid renderpass"),
@@ -608,7 +611,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -629,11 +632,11 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(mid_renderpass);
 
-        // ----------------------------------------------------------------------------------------- renderpass for blend
-        let mut blend_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("blend renderpass"),
+        // --------------------------------------------------------------------------------------- renderpass for surface
+        let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &self.blend_texture_view,
+                view: &self.scaler_texture_view,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
@@ -646,36 +649,6 @@ impl Renderer {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-
-        // ------------------------------------------------------------------------------------------- use the renderpass
-        blend_renderpass.set_pipeline(&self.blend_render_pipeline);
-        blend_renderpass.set_bind_group(0, Some(&self.blend_bind_group), &[]);
-        blend_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
-        blend_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
-        blend_renderpass.draw(0..3, 0..1);
-
-        // ------------------------------------------------------------------------------------------- end the renderpass
-        drop(blend_renderpass);
-
-        // --------------------------------------------------------------------------------------- renderpass for surface
-        let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("scaler renderpass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &surface_texture_view,
-                depth_slice: None,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                    store: wgpu::StoreOp::Store,
-                },
-            })],
-            depth_stencil_attachment: None,
-            timestamp_writes: None,
-            occlusion_query_set: None,
-            multiview_mask: None,
-        });
-
-        let vieport_xywh = self.calc_ratio();
 
         // ------------------------------------------------------------------------------------------- use the renderpass
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
@@ -693,6 +666,41 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(scaler_renderpass);
+
+        // ----------------------------------------------------------------------------------------- renderpass for blend
+        let mut blend_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("blend renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &surface_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ------------------------------------------------------------------------------------------- use the renderpass
+        blend_renderpass.set_pipeline(&self.blend_render_pipeline);
+        blend_renderpass.set_bind_group(0, Some(&self.blend_bind_group), &[]);
+        blend_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
+        blend_renderpass.set_viewport(
+            vieport_xywh[0],
+            vieport_xywh[1],
+            vieport_xywh[2],
+            vieport_xywh[3],
+            0.0,
+            1.0,
+        );
+        blend_renderpass.draw(0..3, 0..1);
+
+        // ------------------------------------------------------------------------------------------- end the renderpass
+        drop(blend_renderpass);
 
         // ------------------------------------------------------------------- submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
