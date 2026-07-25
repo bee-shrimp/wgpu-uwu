@@ -14,48 +14,10 @@ use winit::{
 mod renderer;
 use renderer::Renderer;
 
-#[derive(Debug, Clone, Copy)]
-pub struct Rect {
-    pub pos_x: f32,
-    pub pos_y: f32,
-    pub speed: f32,
-    pub last_pos: (f32, f32),
-}
-
-impl Rect {
-    fn new() -> Self {
-        Self {
-            pos_x: 0.0,
-            pos_y: 0.0,
-            speed: 0.01,
-            last_pos: (0.0, 0.0),
-        }
-    }
-    fn update(&mut self, dir: (Direction, Direction)) -> (f32, f32) {
-        self.last_pos = (self.pos_x, self.pos_y);
-
-        let dir_x = match dir.0 {
-            Direction::Left => -1.0,
-            Direction::Right => 1.0,
-            _ => 0.0,
-        };
-        let dir_y = match dir.1 {
-            Direction::Down => -1.0,
-            Direction::Up => 1.0,
-            _ => 0.0,
-        };
-        self.pos_x += dir_x * self.speed;
-        self.pos_y += dir_y * self.speed;
-        (self.pos_x, self.pos_y)
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Direction {
     Up,
     Down,
-    Left,
-    Right,
     #[default]
     Still,
 }
@@ -64,7 +26,6 @@ pub enum Direction {
 struct App {
     renderer: Option<Renderer>,
     key_table: Box<[bool]>,
-    rect: Option<Rect>,
 }
 
 impl ApplicationHandler for App {
@@ -85,7 +46,6 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.renderer = Some(renderer);
-        self.rect = Some(Rect::new());
 
         // ------------------------------------------------------------------------------------------------------- redraw
         window.request_redraw();
@@ -125,34 +85,19 @@ impl ApplicationHandler for App {
     #[allow(unused_variables)]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
-        let rect = self.rect.as_mut().unwrap();
 
-        let mut direction_x: Direction = Direction::Still;
-        let mut direction_y: Direction = Direction::Still;
-
-        if self.key_table[KeyCode::ArrowLeft as usize] {
-            direction_x = Direction::Left
-        }
-
-        if self.key_table[KeyCode::ArrowRight as usize] {
-            direction_x = Direction::Right
-        }
+        let mut direction: Direction = Direction::Still;
 
         if self.key_table[KeyCode::ArrowUp as usize] {
-            direction_y = Direction::Up
+            direction = Direction::Up
         }
 
         if self.key_table[KeyCode::ArrowDown as usize] {
-            direction_y = Direction::Down
+            direction = Direction::Down
         }
 
-        let direction = (direction_x, direction_y);
-        let rect_pos = rect.update(direction);
-
-        if rect_pos != rect.last_pos {
-            renderer.update(rect_pos);
-            renderer.get_window().request_redraw()
-        };
+        renderer.update(direction);
+        renderer.get_window().request_redraw()
     }
 }
 

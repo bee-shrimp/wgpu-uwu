@@ -225,19 +225,20 @@ what i learnt:
 what it does:  
 
 - clear the window with black.  
-- draw a colourful rectangle inside a navy rectangle.  
-- draw a small half transparent white rectangle.  
+- draw a puplish gradiant triangle.  
+- draw a small half translucent white square.  
 - small rect moves with keyboard inputs.  
 
 how it works:
 
 - has 4 textures and 4 pipelimes.
-    - base: clear with black and draw colourful rect.  
-    - mid: clear with blue and draw white rect.  
-    - blend: sample and blend base and mid.  
+    - base: clear with black and draw triangle.  
+    - mid: clear with transparent and draw white square(alpha=0.5).  
+    - blend: sample base and mid, blend with alpha considered.    
     - scaler: sample blend and make it bigger.  
 
 what i learnt:
 
 - how to chain multipul renderpasses.  
+
 

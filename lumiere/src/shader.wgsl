@@ -1,14 +1,16 @@
-// ------------------------------------------- bind for mid
-struct Uniforms {
-    model_matrix: mat4x4<f32>,
-};
 
-@group(0) @binding(0) 
-var<uniform> uniforms: Uniforms;
+struct Locals {
+    direction: f32,
+}
+
+// ------------------------------------------- bind for mid
+@group(0) @binding(0)
+var diffuse_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var mid_sampler: sampler;
 
 // ------------------------------------------- bind for blend
-@group(0) @binding(0)
-var base_texture: texture_2d<f32>;
+@group(0) @binding(0) var<uniform> locals: Locals;
 @group(0) @binding(1)
 var mid_texture: texture_2d<f32>;
 @group(0) @binding(2)
@@ -33,20 +35,6 @@ struct VertexOutput {
     @location(2) colour: vec3<f32>,
 };
 
-// ------------------------------------------- vs for base
-@vertex
-fn vs_base(
-    model: VertexInput,
-) -> VertexOutput {
-    var out: VertexOutput;
-
-    out.colour = vec3<f32>(model.uv.x, model.uv.y, 1.0);
-
-    out.position = vec4<f32>(model.position.xy, 0.0, 1.0);
-    out.uv = model.uv;
-    return out;
-}
-
 // ------------------------------------------- vs for mid
 @vertex
 fn vs_mid(
@@ -55,7 +43,7 @@ fn vs_mid(
     var out: VertexOutput;
 
     out.colour = vec3<f32>(1.0, 1.0, 1.0);
-    out.position = uniforms.model_matrix * vec4<f32>(model.position.xy, 0.0, 1.0);
+    out.position = vec4<f32>(model.position.xy, 0.0, 1.0);
     out.uv = model.uv;
     return out;
 }
@@ -75,18 +63,17 @@ fn vs_main(
     return out;
 }
 
-// ------------------------------------------- fs for base and mid
+// ------------------------------------------- fs for mid
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(in.colour, 1.0);
+    return textureSample(diffuse_texture, mid_sampler, in.uv);
 }
 
 // ------------------------------------------- fs for blend
 @fragment
 fn fs_blend(in: VertexOutput) -> @location(0) vec4<f32> {
-    var base_colour = textureSample(base_texture, blend_sampler, in.uv);
     var mid_colour = textureSample(mid_texture, blend_sampler, in.uv);
-    var blend = (base_colour.rgb + mid_colour.rgb) / 2;
+    var blend = mid_colour.rgb + locals.direction;
     return vec4<f32>(blend, 1.0);
 }
 
