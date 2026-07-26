@@ -7,8 +7,8 @@ use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
 const RECT_HALF: f32 = 0.75;
-const LOGIC_WIDTH: u32 = 160;
-const LOGIC_HEIGHT: u32 = 144;
+const LOGIC_WIDTH: u32 = 100;
+const LOGIC_HEIGHT: u32 = 100;
 
 // ------------------------------------------------------------------------------------------------------- uniform buffer
 #[repr(C)]
@@ -63,7 +63,7 @@ const MID_VERTICES: &[Vertex] = &[
     },
 ];
 
-// ------------------------------------------------------------------------------ data for blend and scaler vertex buffer
+// ----------------------------------------------------------------------------- data for scaler and effect vertex buffer
 const FULLSCREEN_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left
@@ -100,12 +100,12 @@ pub struct Renderer {
     scaler_texture_view: wgpu::TextureView,
 
     diffuse_bind_group: wgpu::BindGroup,
-    blend_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
+    effect_bind_group: wgpu::BindGroup,
 
     mid_render_pipeline: wgpu::RenderPipeline,
-    blend_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
+    effect_render_pipeline: wgpu::RenderPipeline,
 }
 
 impl Renderer {
@@ -184,7 +184,7 @@ impl Renderer {
         });
 
         // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../assets/bananacat.png");
+        let diffuse_bytes = include_bytes!("../assets/fish.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
 
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -290,7 +290,7 @@ impl Renderer {
         // --------------------------------------------------------------------------------------------- mid texture view
         let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // ----------------------------------------------------------------------------------- blend texture to draw onto
+        // ---------------------------------------------------------------------------------- scaler texture to draw onto
         let scaler_texture_size = wgpu::Extent3d {
             width: size.width,
             height: size.height,
@@ -310,7 +310,7 @@ impl Renderer {
             view_formats: &[],
         });
 
-        // -------------------------------------------------------------------------------------------- blend texture view
+        // ------------------------------------------------------------------------------------------ scaler texture view
         let scaler_texture_view =
             scaler_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -353,10 +353,10 @@ impl Renderer {
             ],
         });
 
-        // -------------------------------------------------------------------------------------------- blend bind group
-        let blend_bind_group_layout =
+        // -------------------------------------------------------------------------------------------- effect bind group
+        let effect_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("blend bind group layout"),
+                label: Some("effect bind group layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
@@ -389,9 +389,9 @@ impl Renderer {
                 ],
             });
 
-        let blend_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("blend bind group"),
-            layout: &blend_bind_group_layout,
+        let effect_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("effect bind group"),
+            layout: &effect_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
@@ -424,13 +424,13 @@ impl Renderer {
             layout: Some(&mid_pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: Some("vs_mid"),
+                entry_point: Some("vs_main"),
                 buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: Some("fs_main"),
+                entry_point: Some("fs_mid"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -480,21 +480,21 @@ impl Renderer {
                 cache: None,
             });
 
-        // ------------------------------------------------------------------------ pipeline to sample mid and add effect
-        let blend_pipeline_layout =
+        // --------------------------------------------------------------------- pipeline to sample scaler and add effect
+        let effect_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("render pipeline layout for blend texture"),
-                bind_group_layouts: &[Some(&blend_bind_group_layout)],
+                label: Some("render pipeline layout for surface"),
+                bind_group_layouts: &[Some(&effect_bind_group_layout)],
                 immediate_size: 0,
             });
 
         let swapchain_capabilities = surface.get_capabilities(&adapter);
         let swapchain_format = swapchain_capabilities.formats[0];
 
-        let blend_render_pipeline =
+        let effect_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("render pipeline for blend"),
-                layout: Some(&blend_pipeline_layout),
+                label: Some("render pipeline for effect"),
+                layout: Some(&effect_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &shader,
                     entry_point: Some("vs_main"),
@@ -503,7 +503,7 @@ impl Renderer {
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: Some("fs_blend"),
+                    entry_point: Some("fs_effect"),
                     compilation_options: Default::default(),
                     targets: &[Some(swapchain_format.into())],
                 }),
@@ -536,12 +536,12 @@ impl Renderer {
             scaler_texture_view,
 
             diffuse_bind_group,
-            blend_bind_group,
             scaler_bind_group,
+            effect_bind_group,
 
             mid_render_pipeline,
-            blend_render_pipeline,
             scaler_render_pipeline,
+            effect_render_pipeline,
         };
 
         // ------------------------------------------------------------------------- configure surface for the first time
@@ -640,7 +640,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLUE),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -654,22 +654,14 @@ impl Renderer {
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
-        scaler_renderpass.set_viewport(
-            vieport_xywh[0],
-            vieport_xywh[1],
-            vieport_xywh[2],
-            vieport_xywh[3],
-            0.0,
-            1.0,
-        );
         scaler_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(scaler_renderpass);
 
-        // ----------------------------------------------------------------------------------------- renderpass for blend
-        let mut blend_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("blend renderpass"),
+        // ---------------------------------------------------------------------------------------- renderpass for effect
+        let mut effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("effect renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &surface_texture_view,
                 depth_slice: None,
@@ -686,10 +678,10 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------------- use the renderpass
-        blend_renderpass.set_pipeline(&self.blend_render_pipeline);
-        blend_renderpass.set_bind_group(0, Some(&self.blend_bind_group), &[]);
-        blend_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
-        blend_renderpass.set_viewport(
+        effect_renderpass.set_pipeline(&self.effect_render_pipeline);
+        effect_renderpass.set_bind_group(0, Some(&self.effect_bind_group), &[]);
+        effect_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
+        effect_renderpass.set_viewport(
             vieport_xywh[0],
             vieport_xywh[1],
             vieport_xywh[2],
@@ -697,10 +689,10 @@ impl Renderer {
             0.0,
             1.0,
         );
-        blend_renderpass.draw(0..3, 0..1);
+        effect_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
-        drop(blend_renderpass);
+        drop(effect_renderpass);
 
         // ------------------------------------------------------------------- submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
@@ -709,8 +701,8 @@ impl Renderer {
     }
 
     fn calc_ratio(&self) -> [f32; 4] {
-        let mid_w = self.mid_texture_view.texture().size().width as f32;
-        let mid_h = self.mid_texture_view.texture().size().height as f32;
+        let mid_w = LOGIC_WIDTH as f32;
+        let mid_h = LOGIC_HEIGHT as f32;
 
         let surface_w = self.window.inner_size().width as f32;
         let surface_h = self.window.inner_size().height as f32;
@@ -742,13 +734,8 @@ impl Renderer {
         self.configure_surface();
     }
 
-    pub fn update(&self, direction: crate::Direction) {
-        let num: f32 = match direction {
-            crate::Direction::Up => 1.0,
-            crate::Direction::Down => -1.0,
-            crate::Direction::Still => 0.0,
-        };
+    pub fn update(&self, brightness: f32) {
         self.queue
-            .write_buffer(&self.uniform_buffer, 0, &num.to_ne_bytes());
+            .write_buffer(&self.uniform_buffer, 0, &brightness.to_ne_bytes());
     }
 }

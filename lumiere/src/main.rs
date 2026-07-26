@@ -26,6 +26,7 @@ pub enum Direction {
 struct App {
     renderer: Option<Renderer>,
     key_table: Box<[bool]>,
+    brightness: f32,
 }
 
 impl ApplicationHandler for App {
@@ -46,6 +47,7 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.renderer = Some(renderer);
+        self.brightness = 0.0;
 
         // ------------------------------------------------------------------------------------------------------- redraw
         window.request_redraw();
@@ -96,8 +98,17 @@ impl ApplicationHandler for App {
             direction = Direction::Down
         }
 
-        renderer.update(direction);
+        self.brightness += direction_to_brightness(direction);
+        renderer.update(self.brightness);
         renderer.get_window().request_redraw()
+    }
+}
+
+fn direction_to_brightness(direction: Direction) -> f32 {
+    match direction {
+        crate::Direction::Up => 0.01,
+        crate::Direction::Down => -0.01,
+        crate::Direction::Still => 0.0,
     }
 }
 
