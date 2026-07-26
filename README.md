@@ -232,13 +232,32 @@ what it does:
 how it works:
 
 - has 4 textures and 4 pipelimes.
-    - base: clear with black and draw triangle.  
-    - mid: clear with transparent and draw white square(alpha=0.5).  
-    - blend: sample base and mid, blend with alpha considered.    
-    - scaler: sample blend and make it bigger.  
+        - base: clear with black and draw triangle.  
+        - mid: clear with transparent and draw white square(alpha=0.5).  
+        - blend: sample base and mid, blend with alpha considered.  
+        - scaler: sample blend and make it bigger.  
 
 what i learnt:
 
 - how to chain multipul renderpasses.  
+
+## lumiere
+
+what it does:  
+
+- clear the window with black.  
+- draw an image.  
+- the brightness of the image changes with keyboard inputs.  
+
+how it works:
+
+- App has brightness field(set 0.0).  
+- keyboard inputs adds/subs 0.01 from the brightness.  
+- uniform buffer contains the brightness.  
+- shader uses the content of uniform buffer as brightness offset.  
+
+what i learnt:
+
+- idea of post proccessing.
 
 
