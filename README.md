@@ -260,4 +260,8 @@ what i learnt:
 
 - idea of post proccessing.
 
+(also updated keyboard input handling and resize fn)
+
+## teinte
+
 
