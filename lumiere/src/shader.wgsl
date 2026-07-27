@@ -1,6 +1,6 @@
 
 struct Locals {
-    direction: f32,
+    brightness_offset: f32,
 }
 
 // ------------------------------------------- bind for mid
@@ -61,7 +61,7 @@ fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
 @fragment
 fn fs_effect(in: VertexOutput) -> @location(0) vec4<f32> {
     var colour = textureSample(scaler_texture, effect_sampler, in.uv);
-    var blend = colour.rgb + locals.direction;
+    var blend = colour.rgb + locals.brightness_offset;
     var result = clamp(blend, vec3<f32>(0.0), vec3<f32>(1.0));
     return vec4<f32>(result, 1.0);
 }
