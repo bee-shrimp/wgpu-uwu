@@ -62,8 +62,7 @@ impl ApplicationHandler for App {
 
             // --------------------------------------------------------------------------------------------------- resize
             WindowEvent::Resized(size) => {
-                // Reconfigures the size of the surface. We do not re-render
-                // here as this event is always followed up by redraw request.
+                // this event is always followed up by redraw request.
                 renderer.resize(size);
             }
             // ----------------------------------------------------------------------------------------- handle key input

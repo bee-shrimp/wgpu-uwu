@@ -89,6 +89,8 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
 
+    sampler_nearest: wgpu::Sampler,
+
     uniform_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
@@ -97,7 +99,11 @@ pub struct Renderer {
     scaler_vertex_buffer: wgpu::Buffer,
 
     mid_texture_view: wgpu::TextureView,
+    scaler_texture: wgpu::Texture,
     scaler_texture_view: wgpu::TextureView,
+
+    scaler_bind_group_layout: wgpu::BindGroupLayout,
+    effect_bind_group_layout: wgpu::BindGroupLayout,
 
     diffuse_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
@@ -528,12 +534,18 @@ impl Renderer {
             mid_vertex_buffer,
             scaler_vertex_buffer,
 
+            sampler_nearest,
+
             uniform_buffer,
             index_buffer,
             num_indices,
 
             mid_texture_view,
+            scaler_texture,
             scaler_texture_view,
+
+            scaler_bind_group_layout,
+            effect_bind_group_layout,
 
             diffuse_bind_group,
             scaler_bind_group,
@@ -732,6 +744,68 @@ impl Renderer {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.configure_surface();
+
+        let new_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("scaler texture"),
+            size: wgpu::Extent3d {
+                width: new_size.width,
+                height: new_size.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        self.scaler_texture_view = new_texture.create_view(&Default::default());
+        drop(std::mem::replace(&mut self.scaler_texture, new_texture));
+
+        self.rebuild_bind_groups();
+    }
+
+    fn rebuild_bind_groups(&mut self) {
+        self.scaler_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("scaler bind group"),
+            layout: &self.scaler_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&self.mid_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler_nearest),
+                },
+            ],
+        });
+
+        self.effect_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("effect bind group"),
+            layout: &self.effect_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
+                        buffer: &self.uniform_buffer,
+                        offset: 0,
+                        size: None,
+                    }),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::TextureView(&self.scaler_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&self.sampler_nearest),
+                },
+            ],
+        });
     }
 
     pub fn update(&self, brightness: f32) {
