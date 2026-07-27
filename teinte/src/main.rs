@@ -14,18 +14,9 @@ use winit::{
 mod renderer;
 use renderer::Renderer;
 
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum Direction {
-    Up,
-    Down,
-    #[default]
-    Still,
-}
-
 #[derive(Default)]
 struct App {
     renderer: Option<Renderer>,
-    key_table: Box<[bool]>,
     brightness: f32,
 }
 
@@ -37,9 +28,6 @@ impl ApplicationHandler for App {
                 .create_window(Window::default_attributes())
                 .unwrap(),
         );
-
-        // --------------------------------------------------------------------------------------------- create key table
-        self.key_table = vec![false; 255].into_boxed_slice();
 
         // ---------------------------------------------------------------------------------------------- create renderer
         let renderer = pollster::block_on(Renderer::new(
@@ -70,16 +58,30 @@ impl ApplicationHandler for App {
 
             // --------------------------------------------------------------------------------------------------- resize
             WindowEvent::Resized(size) => {
-                // Reconfigures the size of the surface. We do not re-render
-                // here as this event is always followed up by redraw request.
+                // this event is always followed up by redraw request.
                 renderer.resize(size);
             }
             // ----------------------------------------------------------------------------------------- handle key input
             WindowEvent::KeyboardInput { event, .. } => {
-                if let PhysicalKey::Code(code) = event.physical_key {
-                    self.key_table[code as usize] = event.state.is_pressed();
+                if let PhysicalKey::Code(code) = event.physical_key
+                    && event.state.is_pressed()
+                {
+                    match code {
+                        KeyCode::ArrowUp => {
+                            self.brightness += 0.05;
+                        }
+                        KeyCode::ArrowDown => {
+                            self.brightness -= 0.05;
+                        }
+                        _ => (),
+                    }
+
+                    if let Some(renderer) = self.renderer.as_ref() {
+                        renderer.update(self.brightness);
+                    }
                 }
             }
+
             _ => (),
         }
     }
@@ -88,27 +90,7 @@ impl ApplicationHandler for App {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
 
-        let mut direction: Direction = Direction::Still;
-
-        if self.key_table[KeyCode::ArrowUp as usize] {
-            direction = Direction::Up
-        }
-
-        if self.key_table[KeyCode::ArrowDown as usize] {
-            direction = Direction::Down
-        }
-
-        self.brightness += direction_to_brightness(direction);
-        renderer.update(self.brightness);
         renderer.get_window().request_redraw()
-    }
-}
-
-fn direction_to_brightness(direction: Direction) -> f32 {
-    match direction {
-        crate::Direction::Up => 0.01,
-        crate::Direction::Down => -0.01,
-        crate::Direction::Still => 0.0,
     }
 }
 
