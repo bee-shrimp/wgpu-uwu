@@ -17,7 +17,6 @@ use renderer::Renderer;
 #[derive(Default)]
 struct App {
     renderer: Option<Renderer>,
-    key_table: Box<[bool]>,
     brightness: f32,
 }
 
@@ -29,9 +28,6 @@ impl ApplicationHandler for App {
                 .create_window(Window::default_attributes())
                 .unwrap(),
         );
-
-        // --------------------------------------------------------------------------------------------- create key table
-        self.key_table = vec![false; 255].into_boxed_slice();
 
         // ---------------------------------------------------------------------------------------------- create renderer
         let renderer = pollster::block_on(Renderer::new(
