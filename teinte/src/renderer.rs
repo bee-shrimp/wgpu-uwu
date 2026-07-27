@@ -190,7 +190,7 @@ impl Renderer {
         });
 
         // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../assets/fish.png");
+        let diffuse_bytes = include_bytes!("../img/fish.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
 
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -808,8 +808,8 @@ impl Renderer {
         });
     }
 
-    pub fn update(&self, brightness: f32) {
+    pub fn update(&self, time: f32) {
         self.queue
-            .write_buffer(&self.uniform_buffer, 0, &brightness.to_ne_bytes());
+            .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
     }
 }

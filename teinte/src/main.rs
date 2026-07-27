@@ -17,7 +17,7 @@ use renderer::Renderer;
 #[derive(Default)]
 struct App {
     renderer: Option<Renderer>,
-    brightness: f32,
+    time: f32,
 }
 
 impl ApplicationHandler for App {
@@ -35,7 +35,7 @@ impl ApplicationHandler for App {
             window.clone(),
         ));
         self.renderer = Some(renderer);
-        self.brightness = 0.0;
+        self.time = 0.0;
 
         // ------------------------------------------------------------------------------------------------------- redraw
         window.request_redraw();
@@ -65,20 +65,9 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput { event, .. } => {
                 if let PhysicalKey::Code(code) = event.physical_key
                     && event.state.is_pressed()
+                    && code == KeyCode::KeyQ
                 {
-                    match code {
-                        KeyCode::ArrowUp => {
-                            self.brightness += 0.05;
-                        }
-                        KeyCode::ArrowDown => {
-                            self.brightness -= 0.05;
-                        }
-                        _ => (),
-                    }
-
-                    if let Some(renderer) = self.renderer.as_ref() {
-                        renderer.update(self.brightness);
-                    }
+                    event_loop.exit();
                 }
             }
 
@@ -89,6 +78,9 @@ impl ApplicationHandler for App {
     #[allow(unused_variables)]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
+
+        self.time += 0.1;
+        renderer.update(self.time);
 
         renderer.get_window().request_redraw()
     }

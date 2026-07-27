@@ -1,6 +1,6 @@
 
 struct Locals {
-    brightness_offset: f32,
+    time: f32,
 }
 
 // ------------------------------------------- bind for mid
@@ -60,8 +60,38 @@ fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
 // ------------------------------------------- fs for effect 
 @fragment
 fn fs_effect(in: VertexOutput) -> @location(0) vec4<f32> {
-    var colour = textureSample(scaler_texture, effect_sampler, in.uv);
-    var blend = colour.rgb + locals.brightness_offset;
-    var result = clamp(blend, vec3<f32>(0.0), vec3<f32>(1.0));
-    return vec4<f32>(result, 1.0);
+    let colour = textureSample(scaler_texture, effect_sampler, in.uv);
+    let hsv = rgb_to_hsv(colour.rgb);
+    let rotated_hue = fract(hsv.x + locals.time); // fract(x) means x - floor(x)
+    let result = hsv_to_rgb(vec3<f32>(rotated_hue, hsv.y, hsv.z));
+
+    return vec4<f32>(colour);
+}
+
+fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
+
+    let max = max(max(rgb.r, rgb.g), rgb.b);
+    let min = min(min(rgb.r, rgb.g), rgb.b);
+
+    let delta = max - min;
+    let saturation = select(0.0, delta / max, delta > 0.0);
+
+    var hue: f32;
+
+    let hue_if_max_red = 60 * (fract(rgb.g - rgb.b) / delta);
+    let hue_if_max_green = 60 * ((rgb.b - rgb.r) / delta + 2.0);
+    let hue_if_max_blue = 60 * ((rgb.r - rgb.g) / delta + 4.0);
+
+    hue = select(hue_if_max_green, hue_if_max_red, rgb.r >= rgb.g && rgb.r >= rgb.b); // see if red is max
+    hue = select(hue, hue_if_max_blue, rgb.b >= rgb.r && rgb.b >= rgb.g); // see if blue is max
+
+    return vec3<f32>(hue, saturation, max);
+}
+
+fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
+    let hue = hsv.x;
+    let saturation = hsv.y;
+    let value = hsv.z;
+
+    return vec3<f32>();
 }
