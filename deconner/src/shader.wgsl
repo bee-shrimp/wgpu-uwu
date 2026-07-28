@@ -1,7 +1,7 @@
 
 struct Locals {
     time: f32,
-}
+    input: f32}
 
 // ------------------------------------------- bind for mid
 @group(0) @binding(0)
@@ -55,14 +55,20 @@ fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
 @fragment
 fn fs_effect(in: VertexOutput) -> @location(0) vec4<f32> {
     let time = locals.time;
+    let input = locals.input;
     let pos = in.position;
     var uv = in.uv;
 
-    let randy = rand(floor(time), uv.y);
-    let randee = rand(time, pos.x * uv.y);
+    let seed = uv.y * 100;
 
-    let offset = select(0.0, randee, randy >= 0.8);
-    uv.x += offset / 100;
+    let randy = rand(floor(time), seed);
+    let randee = rand(floor(time), seed);
+
+    let is_glitch = randy >= 1.0 - input * 10;
+
+    let offset = select(0.0, randee, is_glitch);
+    uv.x += offset * input;
+
     var colour = textureSample(mid_texture, effect_sampler, uv);
 
     return vec4<f32>(colour);
@@ -70,7 +76,11 @@ fn fs_effect(in: VertexOutput) -> @location(0) vec4<f32> {
 
 fn rand(time: f32, uv_y: f32) -> f32 {
     let seeds = vec2<f32>(time, uv_y);
-    return sin(fract(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
+    var randf = fract(sin(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
+    let rand_np = (randf * 2.0) - 1.0;
+    randf = select(randf, rand_np, randf <= 0.02);
+
+    return randf;
 }
 
 // ------------------------------------------- fs for scaler

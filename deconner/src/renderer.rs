@@ -12,6 +12,13 @@ const LOGIC_HEIGHT: u32 = 144;
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
+#[repr(C)]
+#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Uniforms {
+    time: f32,
+    input: f32,
+}
+
 // --------------------------------------------------------------------------------------------- struct for vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -108,10 +115,14 @@ impl Renderer {
         });
 
         // ----------------------------------------------------------------------------------------------- uniform buffer
+        let initial_uniforms = Uniforms {
+            time: 0.0,
+            input: 0.0,
+        };
 
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer time"),
-            contents: &0.0_f32.to_ne_bytes(),
+            label: Some("uniform buffer"),
+            contents: bytemuck::cast_slice(&[initial_uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
@@ -290,7 +301,7 @@ impl Renderer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
                             min_binding_size: wgpu::BufferSize::new(
-                                std::mem::size_of::<f32>() as u64
+                                std::mem::size_of::<Uniforms>() as u64,
                             ),
                         },
                         count: None,
@@ -697,8 +708,11 @@ impl Renderer {
         self.configure_surface();
     }
 
-    pub fn update(&self, time: f32) {
-        self.queue
-            .write_buffer(&self.uniform_buffer, 0, &time.to_ne_bytes());
+    pub fn update(&self, time: f32, input: f32) {
+        self.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[Uniforms { time, input }]),
+        );
     }
 }
