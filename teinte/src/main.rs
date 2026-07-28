@@ -79,7 +79,7 @@ impl ApplicationHandler for App {
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();
 
-        self.time += 0.1;
+        self.time += 0.001;
         renderer.update(self.time);
 
         renderer.get_window().request_redraw()
