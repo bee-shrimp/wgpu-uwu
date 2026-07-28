@@ -16,6 +16,12 @@ var mid_texture: texture_2d<f32>;
 @group(0) @binding(2)
 var effect_sampler: sampler;
 
+// ------------------------------------------- bind for scaler
+@group(0) @binding(0)
+var effect_texture: texture_2d<f32>;
+@group(0) @binding(1)
+var scaler_sampler: sampler;
+
 // ------------------------------------------- vertex struct for both
 struct VertexInput {
     @location(0) position: vec2<f32>,
@@ -48,19 +54,27 @@ fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
 // ------------------------------------------- fs for effect 
 @fragment
 fn fs_effect(in: VertexOutput) -> @location(0) vec4<f32> {
+    let time = locals.time;
     let pos = in.position;
     var uv = in.uv;
 
-    let rand = rand(locals.time, pos.x * uv.y);
+    let randy = rand(floor(time), uv.y);
+    let randee = rand(time, pos.x * uv.y);
 
-    let offset = select(0.0, rand, uv.y >= 0.5 && uv.y <= 0.52);
-    uv.x += offset;
+    let offset = select(0.0, randee, randy >= 0.8);
+    uv.x += offset / 100;
     var colour = textureSample(mid_texture, effect_sampler, uv);
 
-    return vec4<f32>(rand, rand, rand, 1.0);
+    return vec4<f32>(colour);
 }
 
-fn rand(seed: f32, seedy: f32) -> f32 {
-    let seeds = vec2<f32>(seed, seedy);
-    return fract(sin(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
+fn rand(time: f32, uv_y: f32) -> f32 {
+    let seeds = vec2<f32>(time, uv_y);
+    return sin(fract(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+// ------------------------------------------- fs for scaler
+@fragment
+fn fs_scaler(in: VertexOutput) -> @location(0) vec4<f32> {
+    return textureSample(effect_texture, scaler_sampler, in.uv);
 }

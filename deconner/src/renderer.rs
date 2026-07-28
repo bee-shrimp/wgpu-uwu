@@ -6,9 +6,8 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
-const RECT_HALF: f32 = 0.75;
-const LOGIC_WIDTH: u32 = 100;
-const LOGIC_HEIGHT: u32 = 100;
+const LOGIC_WIDTH: u32 = 160;
+const LOGIC_HEIGHT: u32 = 144;
 
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
@@ -35,26 +34,6 @@ impl Vertex {
         }
     }
 }
-
-// ------------------------------------------------------------------------------------------- data for mid vertex buffer
-const MID_VERTICES: &[Vertex] = &[
-    Vertex {
-        position: [-RECT_HALF, RECT_HALF], // top left
-        uv: [0.0, 0.0],
-    },
-    Vertex {
-        position: [-RECT_HALF, -RECT_HALF], // bottom left
-        uv: [0.0, 1.0],
-    },
-    Vertex {
-        position: [RECT_HALF, RECT_HALF], // top right
-        uv: [1.0, 0.0],
-    },
-    Vertex {
-        position: [RECT_HALF, -RECT_HALF], // bottom rightV
-        uv: [1.0, 1.0],
-    },
-];
 
 // ---------------------------------------------------------------------------------------- data for effect vertex buffer
 const FULLSCREEN_VERTICES: &[Vertex] = &[
@@ -86,16 +65,18 @@ pub struct Renderer {
     index_buffer: wgpu::Buffer,
     num_indices: u32,
 
-    mid_vertex_buffer: wgpu::Buffer,
-    effect_vertex_buffer: wgpu::Buffer,
+    fullscreen_vertex_buffer: wgpu::Buffer,
 
     mid_texture_view: wgpu::TextureView,
+    effect_texture_view: wgpu::TextureView,
 
     diffuse_bind_group: wgpu::BindGroup,
     effect_bind_group: wgpu::BindGroup,
+    scaler_bind_group: wgpu::BindGroup,
 
     mid_render_pipeline: wgpu::RenderPipeline,
     effect_render_pipeline: wgpu::RenderPipeline,
+    scaler_render_pipeline: wgpu::RenderPipeline,
 }
 
 impl Renderer {
@@ -143,19 +124,13 @@ impl Renderer {
 
         let num_indices = INDICES.len() as u32;
 
-        // -------------------------------------------------------------------------------------------- mid vertex buffer
-        let mid_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("mid vertex buffer"),
-            contents: bytemuck::cast_slice(MID_VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        // ----------------------------------------------------------------------------------------- effect vertex buffer
-        let effect_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("effect vertex buffer"),
-            contents: bytemuck::cast_slice(FULLSCREEN_VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
+        // ------------------------------------------------------------------------------------ full screen vertex buffer
+        let fullscreen_vertex_buffer =
+            device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("full screen vertex buffer"),
+                contents: bytemuck::cast_slice(FULLSCREEN_VERTICES),
+                usage: wgpu::BufferUsages::VERTEX,
+            });
         // ----------------------------------------------------------------------------------------- surface to draw onto
         let surface = instance.create_surface(window.clone()).unwrap();
         let cap = surface.get_capabilities(&adapter);
@@ -173,7 +148,7 @@ impl Renderer {
         });
 
         // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../img/fish.png");
+        let diffuse_bytes = include_bytes!("../img/sea.png");
         let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
 
         let diffuse_rgba = diffuse_image.to_rgba8();
@@ -279,6 +254,30 @@ impl Renderer {
         // --------------------------------------------------------------------------------------------- mid texture view
         let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
+        // ---------------------------------------------------------------------------------- effect texture to draw onto
+        let effect_texture_size = wgpu::Extent3d {
+            width: LOGIC_WIDTH,
+            height: LOGIC_HEIGHT,
+            depth_or_array_layers: 1,
+        };
+
+        let effect_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("effect texture"),
+            size: effect_texture_size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING
+                | wgpu::TextureUsages::RENDER_ATTACHMENT
+                | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
+        });
+
+        // ------------------------------------------------------------------------------------------ effect texture view
+        let effect_texture_view =
+            effect_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
         // -------------------------------------------------------------------------------------------- effect bind group
         let effect_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -338,6 +337,45 @@ impl Renderer {
             ],
         });
 
+        // -------------------------------------------------------------------------------------------- scaler bind group
+        let scaler_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+            });
+
+        let scaler_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("scaler bind group"),
+            layout: &scaler_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&effect_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                },
+            ],
+        });
+
         // ------------------------------------------------------------------------------------------------- mid pipeline
         let mid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("render pipeline layout for mid texture"),
@@ -379,9 +417,6 @@ impl Renderer {
                 immediate_size: 0,
             });
 
-        let swapchain_capabilities = surface.get_capabilities(&adapter);
-        let swapchain_format = swapchain_capabilities.formats[0];
-
         let effect_render_pipeline =
             device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("render pipeline for effect"),
@@ -395,6 +430,43 @@ impl Renderer {
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
                     entry_point: Some("fs_effect"),
+                    compilation_options: Default::default(),
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: wgpu::PrimitiveState::default(),
+                depth_stencil: None,
+                multisample: wgpu::MultisampleState::default(),
+                multiview_mask: None,
+                cache: None,
+            });
+
+        // ------------------------------------------------------------------------------------------ pipeline for scaler
+        let scaler_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("render pipeline layout for surface"),
+                bind_group_layouts: &[Some(&scaler_bind_group_layout)],
+                immediate_size: 0,
+            });
+        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let swapchain_format = swapchain_capabilities.formats[0];
+
+        let scaler_render_pipeline =
+            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                label: Some("render pipeline for surface"),
+                layout: Some(&scaler_pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: Some("vs_main"),
+                    buffers: &[Vertex::desc()],
+                    compilation_options: Default::default(),
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: Some("fs_scaler"),
                     compilation_options: Default::default(),
                     targets: &[Some(swapchain_format.into())],
                 }),
@@ -416,20 +488,22 @@ impl Renderer {
             surface,
             surface_format,
 
-            mid_vertex_buffer,
-            effect_vertex_buffer,
+            fullscreen_vertex_buffer,
 
             uniform_buffer,
             index_buffer,
             num_indices,
 
             mid_texture_view,
+            effect_texture_view,
 
             diffuse_bind_group,
             effect_bind_group,
+            scaler_bind_group,
 
             mid_render_pipeline,
             effect_render_pipeline,
+            scaler_render_pipeline,
         };
 
         // ------------------------------------------------------------------------- configure surface for the first time
@@ -489,8 +563,6 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
-        let vieport_xywh = self.calc_ratio();
-
         // ------------------------------------------------------------------------------------------- renderpass for mid
         let mut mid_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("mid renderpass"),
@@ -512,7 +584,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- use the renderpass
         mid_renderpass.set_pipeline(&self.mid_render_pipeline);
         mid_renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
-        mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
+        mid_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         mid_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
@@ -524,7 +596,7 @@ impl Renderer {
         let mut effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("effect renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &surface_texture_view,
+                view: &self.effect_texture_view,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
@@ -541,19 +613,49 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- use the renderpass
         effect_renderpass.set_pipeline(&self.effect_render_pipeline);
         effect_renderpass.set_bind_group(0, Some(&self.effect_bind_group), &[]);
-        effect_renderpass.set_vertex_buffer(0, self.effect_vertex_buffer.slice(..));
-        effect_renderpass.set_viewport(
-            vieport_xywh[0],
-            vieport_xywh[1],
-            vieport_xywh[2],
-            vieport_xywh[3],
-            0.0,
-            1.0,
-        );
+        effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        effect_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         effect_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(effect_renderpass);
+
+        // --------------------------------------------------------------------------------------- renderpass for surface
+        let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("scaler renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &surface_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        let viewport_xywh = self.calc_ratio();
+
+        // ------------------------------------------------------------------------------------------- use the renderpass
+        scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
+        scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
+        scaler_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        scaler_renderpass.set_viewport(
+            viewport_xywh[0],
+            viewport_xywh[1],
+            viewport_xywh[2],
+            viewport_xywh[3],
+            0.0,
+            1.0,
+        );
+        scaler_renderpass.draw(0..3, 0..1);
+
+        // ------------------------------------------------------------------------------------------- end the renderpass
+        drop(scaler_renderpass);
 
         // ------------------------------------------------------------------- submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
