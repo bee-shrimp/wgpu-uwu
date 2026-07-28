@@ -27,7 +27,7 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
 };
 
-// ------------------------------------------- vs for mid
+// ------------------------------------------- vs for mid and effect
 @vertex
 fn vs_main(
     model: VertexInput,
@@ -48,69 +48,19 @@ fn fs_mid(in: VertexOutput) -> @location(0) vec4<f32> {
 // ------------------------------------------- fs for effect 
 @fragment
 fn fs_effect(in: VertexOutput) -> @location(0) vec4<f32> {
-    let colour = textureSample(mid_texture, effect_sampler, in.uv);
-    let hsv = rgb_to_hsv(colour.rgb);
+    let pos = in.position;
+    var uv = in.uv;
 
-    // fract(x) means x - floor(x)
-    let rotated_hue = fract(hsv.x + locals.time);
+    let rand = rand(locals.time, pos.x * uv.y);
 
-    let result = hsv_to_rgb(vec3<f32>(rotated_hue, hsv.y, hsv.z));
+    let offset = select(0.0, rand, uv.y >= 0.5 && uv.y <= 0.52);
+    uv.x += offset;
+    var colour = textureSample(mid_texture, effect_sampler, uv);
 
-    return vec4<f32>(result, 1.0);
+    return vec4<f32>(rand, rand, rand, 1.0);
 }
 
-fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
-
-    let max = max(max(rgb.r, rgb.g), rgb.b);
-    let min = min(min(rgb.r, rgb.g), rgb.b);
-
-    let delta = max - min;
-    let saturation = select(0.0, delta / max, delta > 0.0);
-
-    var hue: f32;
-
-    var hue_if_max_red = 60 * ((rgb.g - rgb.b) / delta);
-    hue_if_max_red = fract(hue_if_max_red);
-    let hue_if_max_green = 60 * ((rgb.b - rgb.r) / delta + 2.0);
-    let hue_if_max_blue = 60 * ((rgb.r - rgb.g) / delta + 4.0);
-
-    hue = select(hue_if_max_green, hue_if_max_red, rgb.r >= rgb.g && rgb.r >= rgb.b); // see if red is max
-    hue = select(hue, hue_if_max_blue, rgb.b >= rgb.r && rgb.b >= rgb.g); // see if blue is max
-
-    return vec3<f32>(hue / 360, saturation, max);
-}
-
-fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
-    let hue = hsv.x;
-    let saturation = hsv.y;
-    let value = hsv.z;
-
-    let h6 = hue * 6;
-
-    let i = floor(h6);
-    let f = fract(h6);
-
-    let max = value;
-    let min = max * (1.0 - saturation);
-    let inc = max * (1.0 - saturation * (1.0 - f));
-    let dec = max * (1.0 - saturation * f);
-
-    var r: f32;
-    var g: f32;
-    var b: f32;
-
-    switch i32(i) {
-        case 0: { r = max; g = inc; b = min; }
-        case 1: { r = dec; g = max; b = min; }
-        case 2: { r = min; g = max; b = inc; }
-        case 3: { r = min; g = dec; b = max; }
-        case 4: { r = inc; g = min; b = max; }
-        case 5: { r = max; g = min; b = dec; }
-        default: { r = max; g = min; b = min; }
-    }
-
-    var rgb = vec3<f32>(r, g, b);
-    rgb = saturate(rgb);
-
-    return vec3<f32>(r, g, b);
+fn rand(seed: f32, seedy: f32) -> f32 {
+    let seeds = vec2<f32>(seed, seedy);
+    return fract(sin(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
 }
