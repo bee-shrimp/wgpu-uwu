@@ -231,7 +231,7 @@ what it does:
 
 how it works:
 
-- has 4 textures and 4 pipelimes.
+- has 4 textures and 4 pipelines.
         - base: clear with black and draw triangle.  
         - mid: clear with transparent and draw white square(alpha=0.5).  
         - blend: sample base and mid, blend with alpha considered.  
@@ -264,4 +264,43 @@ what i learnt:
 
 ## teinte
 
+what it does:  
+
+- clear the window with black.  
+- draw an image.  
+- the hue of the image changes over time.  
+
+how it works:
+
+- App has time fierd(starts 0.0).  
+- about_to_wait increases time by 0.002.  
+- uniform_buffer contains the time.  
+- has 3 pipelines.  
+        - mid  
+                - draw an image.  
+        - scaler  
+                - sample mid texture and draw bigger
+                - (not necessary, effect pipeline can do this)  
+                - (too lazy to fix)
+        - effect  
+                - sample and draw scaler texture.  
+                - convert rgb of the texture to hsv.  
+                - rotate hue a little using time from uniform buffer.  
+                - convert hsv back to rgb.  
+
+## deconner
+
+what it does:  
+
+- clear the window with black.  
+- draw an image.  
+- have glitch.  
+
+how it works:
+
+- has 2 pipelines.  
+        - mid  
+                - draw an image.  
+        - effect  
+                - sample mid texture.  
 
