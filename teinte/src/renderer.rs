@@ -444,7 +444,7 @@ impl Renderer {
             cache: None,
         });
 
-        // ------------------------------------------------------ final pipeline to sample effect and draw on the surface
+        // ------------------------------------------------------------------------------------------ pipeline for scaler
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render pipeline layout for surface"),
