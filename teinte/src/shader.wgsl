@@ -81,14 +81,15 @@ fn rgb_to_hsv(rgb: vec3<f32>) -> vec3<f32> {
 
     var hue: f32;
 
-    let hue_if_max_red = 60 * (fract(rgb.g - rgb.b) / delta);
+    var hue_if_max_red = 60 * ((rgb.g - rgb.b) / delta);
+    hue_if_max_red = fract(hue_if_max_red);
     let hue_if_max_green = 60 * ((rgb.b - rgb.r) / delta + 2.0);
     let hue_if_max_blue = 60 * ((rgb.r - rgb.g) / delta + 4.0);
 
     hue = select(hue_if_max_green, hue_if_max_red, rgb.r >= rgb.g && rgb.r >= rgb.b); // see if red is max
     hue = select(hue, hue_if_max_blue, rgb.b >= rgb.r && rgb.b >= rgb.g); // see if blue is max
 
-    return vec3<f32>(hue, saturation, max);
+    return vec3<f32>(hue / 360, saturation, max);
 }
 
 fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
@@ -119,6 +120,9 @@ fn hsv_to_rgb(hsv: vec3<f32>) -> vec3<f32> {
         case 5: { r = max; g = min; b = dec; }
         default: { r = max; g = min; b = min; }
     }
+
+    var rgb = vec3<f32>(r, g, b);
+    rgb = saturate(rgb);
 
     return vec3<f32>(r, g, b);
 }

@@ -10,13 +10,6 @@ const RECT_HALF: f32 = 0.75;
 const LOGIC_WIDTH: u32 = 100;
 const LOGIC_HEIGHT: u32 = 100;
 
-// ------------------------------------------------------------------------------------------------------- uniform buffer
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Uniforms {
-    pub direction: f32,
-}
-
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
 
@@ -666,6 +659,14 @@ impl Renderer {
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.scaler_vertex_buffer.slice(..));
+        scaler_renderpass.set_viewport(
+            vieport_xywh[0],
+            vieport_xywh[1],
+            vieport_xywh[2],
+            vieport_xywh[3],
+            0.0,
+            1.0,
+        );
         scaler_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
