@@ -1086,6 +1086,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
+name = "lac"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "lebe"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

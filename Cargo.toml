@@ -2,7 +2,7 @@
 members = [
 "bleu", 
 "carre", 
-"couleur", "deconner", "entre", "flou", "grand", "gris", "grossir", "image", "lumiere", 
+"couleur", "deconner", "entre", "flou", "grand", "gris", "grossir", "image", "lac", "lumiere", 
 "nombreux", "plusieurs", "teinte", "tourner",
 "triangle"]
 

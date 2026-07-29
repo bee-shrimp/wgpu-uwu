@@ -292,15 +292,36 @@ how it works:
 
 what it does:  
 
-- clear the window with black.  
-- draw an image.  
-- have glitch.  
+- draw a fish with watery background.  
+- with keyboard input(up) fish glitches.  
+- the glitch intensifies with keyboard inputs(up).  
 
 how it works:
 
 - has 2 pipelines.  
+        - base
+                - draw background.  
         - mid  
-                - draw an image.  
+                - draw fish.  
         - effect  
                 - sample mid texture.  
+                - make random number using uv.y.  
+                - shift uv.x randomly when the rand is big.  
+        - scaler 
+                - sample and blend base/mid.  
+                - draw bigger on the surface.  
+
+what i learnt
+
+- how to manipulate pixels in the texture.  
+- how to generate psudo random number in shader.  
+
+## lac
+
+what it does:  
+
+- draw an lakeside image.  
+- the lake has wavy reflection of lakeside view.  
+
+how it works:
 
