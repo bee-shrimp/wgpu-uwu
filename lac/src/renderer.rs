@@ -9,9 +9,7 @@ use crate::{OwnedDisplayHandle, Window};
 const LOGIC_WIDTH: u32 = 160;
 const LOGIC_HEIGHT: u32 = 144;
 
-// ------------------------------------------------------------------------------------------------ data for index buffer
-const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
-
+// -------------------------------------------------------------------------------------------- struct for uniform buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
@@ -69,8 +67,6 @@ pub struct Renderer {
     surface_format: wgpu::TextureFormat,
 
     uniform_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
-    num_indices: u32,
 
     fullscreen_vertex_buffer: wgpu::Buffer,
 
@@ -135,15 +131,6 @@ impl Renderer {
             contents: bytemuck::cast_slice(&[initial_uniforms]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
-
-        // ------------------------------------------------------------------------------------------------- index buffer
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let num_indices = INDICES.len() as u32;
 
         // ------------------------------------------------------------------------------------ full screen vertex buffer
         let fullscreen_vertex_buffer =
@@ -512,8 +499,6 @@ impl Renderer {
             fullscreen_vertex_buffer,
 
             uniform_buffer,
-            index_buffer,
-            num_indices,
 
             mid_texture_view,
             effect_texture_view,
@@ -606,9 +591,8 @@ impl Renderer {
         mid_renderpass.set_pipeline(&self.mid_render_pipeline);
         mid_renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
         mid_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
-        mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         mid_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
-        mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
+        mid_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(mid_renderpass);
