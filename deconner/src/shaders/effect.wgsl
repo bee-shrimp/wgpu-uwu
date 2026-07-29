@@ -34,19 +34,20 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let time = locals.time;
     let input = locals.input;
     let pos = in.position;
-    var uv = in.uv;
+    let uv = in.uv;
 
-    let seed = uv.y * 100;
+    let scanline_id = floor(uv.y * 100);
 
-    let randy = rand(floor(time), seed);
-    let randee = rand(floor(time), seed);
+    let line_rnd = rand(floor(time), scanline_id);
 
-    let is_glitch = randy >= 1.0 - input * 10;
+    let is_glitch = line_rnd >= 1.0 - input * 10;
 
-    let offset = select(0.0, randee, is_glitch);
-    uv.x += offset * input;
+    let offset = select(0.0, rand(time, scanline_id + 1.0), is_glitch);
 
-    var colour = textureSample(mid_texture, effect_sampler, uv);
+    var base_uv = uv;
+    base_uv.x += offset * input;
+
+    var colour = textureSample(mid_texture, effect_sampler, base_uv);
 
     return vec4<f32>(colour);
 }
@@ -59,4 +60,5 @@ fn rand(time: f32, uv_y: f32) -> f32 {
 
     return randf;
 }
+
 

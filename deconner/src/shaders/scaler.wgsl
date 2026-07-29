@@ -1,7 +1,9 @@
 
 @group(0) @binding(0)
-var effect_texture: texture_2d<f32>;
+var base_texture: texture_2d<f32>;
 @group(0) @binding(1)
+var effect_texture: texture_2d<f32>;
+@group(0) @binding(2)
 var scaler_sampler: sampler;
 
 struct VertexInput {
@@ -27,5 +29,8 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(effect_texture, scaler_sampler, in.uv);
+    var base_colour = textureSample(base_texture, scaler_sampler, in.uv);
+    var mid_colour = textureSample(effect_texture, scaler_sampler, in.uv);
+    var blend = (base_colour.rgb * (1.0 - mid_colour.a) + mid_colour.rgb * mid_colour.a);
+    return vec4<f32>(blend, 1.0);
 }
