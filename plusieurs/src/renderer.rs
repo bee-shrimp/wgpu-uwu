@@ -60,7 +60,6 @@ const BASE_VERTICES: &[Vertex] = &[
     },
 ];
 
-const RECT_HALF: f32 = 0.25;
 // ------------------------------------------------------------------------------------------- data for mid vertex buffer
 const MID_VERTICES: &[Vertex] = &[
     Vertex {
