@@ -9,7 +9,7 @@ use crate::{OwnedDisplayHandle, Window};
 const LOGIC_WIDTH: u32 = 160;
 const LOGIC_HEIGHT: u32 = 144;
 
-const RECT_HALF: f32 = 0.25;
+const RECT_HALF: f32 = 0.5;
 
 // ------------------------------------------------------------------------------------------------ data for index buffer
 const INDICES: &[u16] = &[0, 1, 2, /**/ 1, 3, 2];
@@ -75,7 +75,7 @@ const MID_VERTICES: &[Vertex] = &[
         uv: [1.0, 0.0],
     },
     Vertex {
-        position: [RECT_HALF, -RECT_HALF], // bottom rightV
+        position: [RECT_HALF, -RECT_HALF], // bottom right
         uv: [1.0, 1.0],
     },
 ];
@@ -795,9 +795,8 @@ impl Renderer {
         base_renderpass.set_pipeline(&self.base_render_pipeline);
         base_renderpass.set_bind_group(0, Some(&self.bg_bind_group), &[]);
         base_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
-        base_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
         base_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
-        base_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
+        base_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(base_renderpass);
@@ -823,9 +822,9 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- use the renderpass
         mid_renderpass.set_pipeline(&self.mid_render_pipeline);
         mid_renderpass.set_bind_group(0, Some(&self.fg_bind_group), &[]);
-        mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
         mid_renderpass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        mid_renderpass.set_viewport(0.0, 0.0, 100.0, 100.0, 0.0, 1.0);
+        mid_renderpass.set_vertex_buffer(0, self.mid_vertex_buffer.slice(..));
+        mid_renderpass.set_viewport(50.0, 40.0, 64.0, 64.0, 0.0, 1.0);
         mid_renderpass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
@@ -853,7 +852,6 @@ impl Renderer {
         effect_renderpass.set_pipeline(&self.effect_render_pipeline);
         effect_renderpass.set_bind_group(0, Some(&self.effect_bind_group), &[]);
         effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
-        effect_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         effect_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
