@@ -109,9 +109,19 @@ impl Renderer {
         let size = window.inner_size();
 
         // ------------------------------------------------------------------------------------------------- load shaders
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let mid_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/mid.wgsl"))),
+        });
+        // ------------------------------------------------------------------------------------------------- load shaders
+        let effect_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/effect.wgsl"))),
+        });
+        // ------------------------------------------------------------------------------------------------- load shaders
+        let scaler_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/scaler.wgsl"))),
         });
 
         // ----------------------------------------------------------------------------------------------- uniform buffer
@@ -398,14 +408,14 @@ impl Renderer {
             label: Some("render pipeline for mid texture"),
             layout: Some(&mid_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &shader,
+                module: &mid_shader,
                 entry_point: Some("vs_main"),
                 buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &shader,
-                entry_point: Some("fs_mid"),
+                module: &mid_shader,
+                entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
                     format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -433,14 +443,14 @@ impl Renderer {
                 label: Some("render pipeline for effect"),
                 layout: Some(&effect_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader,
+                    module: &effect_shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: Some("fs_effect"),
+                    module: &effect_shader,
+                    entry_point: Some("fs_main"),
                     compilation_options: Default::default(),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: wgpu::TextureFormat::Rgba8UnormSrgb,
@@ -470,14 +480,14 @@ impl Renderer {
                 label: Some("render pipeline for surface"),
                 layout: Some(&scaler_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader,
+                    module: &scaler_shader,
                     entry_point: Some("vs_main"),
                     buffers: &[Vertex::desc()],
                     compilation_options: Default::default(),
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: Some("fs_scaler"),
+                    module: &scaler_shader,
+                    entry_point: Some("fs_main"),
                     compilation_options: Default::default(),
                     targets: &[Some(swapchain_format.into())],
                 }),
