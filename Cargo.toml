@@ -1,10 +1,23 @@
 [workspace]
 members = [
-"bleu", 
-"carre", 
-"couleur", "deconner", "entre", "flou", "grand", "gris", "grossir", "image", "lac", "lumiere", 
-"nombreux", "plusieurs", "teinte", "tourner",
-"triangle"]
+"00_blue", 
+"01_triangle",
+"02_square", 
+"03_colour", 
+"04_many", 
+"05_rotate",
+"06_image", 
+"07_big", 
+"08_grey", 
+"09_blur", 
+"10_mid", 
+"11_scaler", 
+"12_layer", 
+"13_illuminate", 
+"14_hue", 
+"15_glitch", 
+"16_water", 
+]
 
 resolver = "3"
 # [profile.release]

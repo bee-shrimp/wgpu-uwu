@@ -176,6 +176,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08606f8c3cbf4ce6ec8e28fb0014a2c086708fe954eaa885384a6165172e7e8"
 
 [[package]]
+name = "big"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -209,16 +221,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4512299f36f043ab09a583e57bceb5a5aab7a73db1805848e8fef3c9e8c78b3"
 
 [[package]]
-name = "bleu"
-version = "0.1.0"
-dependencies = [
- "env_logger",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "block2"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -234,6 +236,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5"
 dependencies = [
  "objc2 0.6.4",
+]
+
+[[package]]
+name = "blue"
+version = "0.1.0"
+dependencies = [
+ "env_logger",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "blur"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -298,18 +322,6 @@ dependencies = [
  "rustix 0.38.44",
  "wayland-backend",
  "wayland-client",
-]
-
-[[package]]
-name = "carre"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "glam",
- "pollster",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -419,7 +431,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "couleur"
+name = "coulour"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
@@ -477,18 +489,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
-name = "deconner"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "image 0.24.9",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -539,18 +539,6 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
-
-[[package]]
-name = "entre"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "glam",
- "pollster",
- "wgpu",
- "winit",
-]
 
 [[package]]
 name = "env_filter"
@@ -629,18 +617,6 @@ checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
-]
-
-[[package]]
-name = "flou"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "image 0.24.9",
- "pollster",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -767,6 +743,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "556f6b2ea90b8d15a74e0e7bb41671c9bdf38cd9f78c284d750b9ce58a2b5be7"
 
 [[package]]
+name = "glitch"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "glow"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -822,36 +810,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "grand"
+name = "grey"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
  "env_logger",
- "image 0.24.9",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "gris"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "image 0.24.9",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
-name = "grossir"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "glam",
  "image 0.24.9",
  "pollster",
  "wgpu",
@@ -907,6 +870,30 @@ name = "hexf-parse"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
+name = "hue"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
+name = "illuminate"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
 
 [[package]]
 name = "image"
@@ -1086,12 +1073,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "lac"
+name = "layer"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
  "env_logger",
- "image 0.24.9",
+ "glam",
  "pollster",
  "wgpu",
  "winit",
@@ -1171,13 +1158,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
-name = "lumiere"
+name = "many"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
  "env_logger",
- "image 0.24.9",
+ "glam",
  "pollster",
+ "rand",
  "wgpu",
  "winit",
 ]
@@ -1195,6 +1183,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "714098028fe011992e1c3962653c96b2d578c4b4bce9036e15ff220319b1e0e3"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "mid"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "glam",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -1261,19 +1261,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
  "jni-sys 0.3.1",
-]
-
-[[package]]
-name = "nombreux"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "glam",
- "pollster",
- "rand",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -1675,18 +1662,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
-name = "plusieurs"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "glam",
- "pollster",
- "wgpu",
- "winit",
-]
-
-[[package]]
 name = "png"
 version = "0.17.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1943,6 +1918,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
+name = "rotate"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "glam",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1996,6 +1983,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "scaler"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "glam",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]
@@ -2152,6 +2152,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "square"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "glam",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2172,18 +2184,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "teinte"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "image 0.24.9",
- "pollster",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -2299,18 +2299,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2abe9b86193656635d2411dc43050282ca48aa31c2451210f4202550afb7526"
 dependencies = [
  "winnow",
-]
-
-[[package]]
-name = "tourner"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "env_logger",
- "glam",
- "pollster",
- "wgpu",
- "winit",
 ]
 
 [[package]]
@@ -2453,6 +2441,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5fd04d9e306f1907bd13c6361b5c6bfc7b3b3c095ed3f8a9246390f8dbdee129"
 dependencies = [
  "unicode-ident",
+]
+
+[[package]]
+name = "water"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
 ]
 
 [[package]]

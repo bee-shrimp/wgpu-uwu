@@ -2,7 +2,7 @@
 
 my delusional attempt to learn wgpu.  
 
-## bleu
+## 00. blue
 
 what it is:  
 
@@ -15,7 +15,7 @@ what i did:
 - changed clear colour from green to blue.  
 - took notes in comments to understand.  
 
-## triangle
+## 01. triangle
 
 what it does:  
 
@@ -34,7 +34,7 @@ what i learnt:
 
 - how to make/update/use an uniform buffer.  
 
-## carre
+## 02. square
 
 what it does:  
 
@@ -59,7 +59,7 @@ reference:
 - [Uniform buffers and a 3d camera | Learn Wgpu](https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/)
 - [Proper way to get input in game with winit :r/rust_gamedev](https://www.reddit.com/r/rust_gamedev/comments/1b1oxtr/proper_way_to_get_input_in_game_with_winit/?solution=31b6dcf698621a6b31b6dcf698621a6b&js_challenge=1&token=bbbe4bf1c9a2b5160829c4be34da5861d3917b178f888e044fcbc2dfcd4e7f69&jsc_orig_r=)
 
-## coleur
+## 03. colour  
 
 what it does:  
 
@@ -78,7 +78,7 @@ what i learnt:
 - how to pass information between shaders.  
 - what uv is and how to use it.  
 
-## nombreux
+## 04. many
 
 what it does:  
 
@@ -96,7 +96,7 @@ what i learnt:
 
 - how to make/use instance buffer.  
 
-## tourner
+## 05. rotate  
 
 what it does:  
 
@@ -114,9 +114,9 @@ what i learnt:
 
 - how to apply multiple things to a 4x4matrix.  
 - the order matters(scale -> rotation -> translation).  
-- the order flips(model \*= translation * rotation * scale)
+- the order flips(model *= translation * rotation * scale)  
 
-## image
+## 06. image
 
 what it does:  
 
@@ -135,7 +135,7 @@ what i learnt:
 - how to handle multiple bind groups.  
 - what texture and sampler are and how they works.  
 
-## grand
+## 07. big
 
 what it does:  
 
@@ -151,7 +151,7 @@ what i learnt:
 
 (removed uniform buffer to make sure i understand how it works.)  
 
-## gris
+## 08. grey
 
 what it does:  
 
@@ -165,7 +165,7 @@ what i learnt:
 
 - how to manipulate the pixels in texture.  
 
-## flou
+## 09. blur
 
 what it does:  
 
@@ -179,7 +179,7 @@ what i learnt:
 
 - the basics of gaussian blur.  
 
-## entre
+## 10. mid  
 
 what it does:  
 
@@ -201,7 +201,7 @@ what i learnt:
 - how to make and use multiple bind group/pipelime/renderpass.  
 - how to keep the aspect ratio in tact.  
 
-## grossir
+## 11. scaler
 
 what it does:  
 
@@ -220,7 +220,7 @@ what i learnt:
 
 - how to make and use even more bind group/pipeline/renderpass.  
 
-## plusieurs
+## 12_layer
 
 what it does:  
 
@@ -241,7 +241,7 @@ what i learnt:
 
 - how to chain multipul renderpasses.  
 
-## lumiere
+## 13. illuminate  
 
 what it does:  
 
@@ -262,7 +262,7 @@ what i learnt:
 
 (also updated keyboard input handling and resize fn)
 
-## teinte
+## 14. hue  
 
 what it does:  
 
@@ -288,7 +288,7 @@ how it works:
                 - rotate hue a little using time from uniform buffer.  
                 - convert hsv back to rgb.  
 
-## deconner
+## 15. glitch  
 
 what it does:  
 
@@ -307,7 +307,7 @@ how it works:
                 - sample mid texture.  
                 - make random number using uv.y.  
                 - shift uv.x randomly when the rand is big.  
-        - scaler 
+        - scaler  
                 - sample and blend base/mid.  
                 - draw bigger on the surface.  
 
@@ -316,7 +316,7 @@ what i learnt
 - how to manipulate pixels in the texture.  
 - how to generate psudo random number in shader.  
 
-## lac
+## 16. water  
 
 what it does:  
 
@@ -324,4 +324,3 @@ what it does:
 - the lake has wavy reflection of lakeside view.  
 
 how it works:
-
