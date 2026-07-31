@@ -39,19 +39,21 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let end = 0.0;
     let mapped_uv_y = start + uv.y * (end - start);
 
-    let frequency = 5.0; // 1.0-5.0
-    let amplitude = 0.05; // 0.01-0.2
-    let speed = 0.5; // 0.5-5.0
+    let frequency = 9.0; // 1.0-5.0
+    let amplitude = 0.02; // 0.01-0.2
+    let speed = 0.3; // 0.5-5.0
 
-    var offset_x = sin((1.0 - uv.y) * frequency + time * speed) * amplitude;
-    var offset_y = sin((1.0 - uv.y) * (frequency + 5.0) + time * (speed + 0.2)) * (amplitude - 0.03);
-    // let result = sin(base * frequency + phase) * amplitude
+    let offset_x1 = sin((1.0 - uv.y) * frequency + time * speed) * amplitude * 0.5;
+    var offset_x2 = sin((1.0 - uv.y) * (frequency * 5.0) + time * (speed * 1.7)) * (amplitude * 0.4);
+    var offset_x3 = sin((1.0 - uv.y) * (frequency * 11.0) + time * (speed * 2.1)) * (amplitude * 0.3);
+    var offset_y1 = sin((1.0 - uv.x) * (frequency) + time * (speed * 1.1)) * (amplitude * 0.15);
+    var offset_y2 = sin((1.0 - uv.x) * (frequency * 3.0) + time * (speed * 1.3)) * (amplitude * 0.1);
 
-    uv.x += offset_x;
-    uv.y = mapped_uv_y + offset_y;
+    uv.x = uv.x + offset_x1 + offset_x2 + offset_x3;
+    uv.y = mapped_uv_y + offset_y1 + offset_y2;
 
     let colour = textureSample(mid_texture, effect_sampler, uv);
-    return vec4(colour.rgb, 0.5);
+    return vec4(colour.rgb, 0.3);
 }
 
 fn rand(time: f32, uv_y: f32) -> f32 {
