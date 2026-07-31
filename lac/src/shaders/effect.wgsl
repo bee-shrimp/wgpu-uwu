@@ -2,7 +2,8 @@ struct Locals {
     time: f32,
     input: f32}
 
-@group(0) @binding(0) var<uniform> locals: Locals;
+@group(0) @binding(0) 
+var<uniform> locals: Locals;
 @group(0) @binding(1)
 var mid_texture: texture_2d<f32>;
 @group(0) @binding(2)
@@ -28,36 +29,30 @@ fn vs_main(
     out.uv = model.uv;
     return out;
 }
-
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let time = locals.time;
-    let input = locals.input;
-    let pos = in.position;
-    let uv = in.uv;
+    let intensity = locals.input;
+    var uv = in.uv;
 
-    let seed = floor(uv.y * 100);
+    let start = 0.5;
+    let end = 0.0;
+    let mapped_uv_y = start + uv.y * (end - start);
 
-    let line_rnd = rand(floor(time), seed);
+    var offset = sin((1.0 - uv.y) * time * uv.y * 2) / 100;
 
-    let is_glitch = line_rnd >= 1.0 - input * 10;
+    uv.x += offset;
+    uv.y = mapped_uv_y;
 
-    let offset = select(0.0, rand(time, seed + 1.0), is_glitch);
-
-    var shifted_uv = uv;
-    shifted_uv.x += offset * input;
-
-    var colour = textureSample(mid_texture, effect_sampler, shifted_uv);
-
-    return vec4<f32>(colour);
+    let colour = textureSample(mid_texture, effect_sampler, uv);
+    return vec4(colour.rgb, 0.5);
 }
 
 fn rand(time: f32, uv_y: f32) -> f32 {
     let seeds = vec2<f32>(time, uv_y);
-    let rand_p = fract(sin(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
-    let rand_np = (rand_p * 2.0) - 1.0;
-    let randf = select(rand_p, rand_np, rand_p <= 0.02);
+    let randf = fract(sin(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
 
     return randf;
 }
+
 

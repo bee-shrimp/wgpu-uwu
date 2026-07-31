@@ -1,3 +1,4 @@
+
 @group(0) @binding(0)
 var diffuse_texture: texture_2d<f32>;
 @group(0) @binding(1)

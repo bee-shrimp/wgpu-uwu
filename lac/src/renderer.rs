@@ -70,14 +70,14 @@ pub struct Renderer {
 
     fullscreen_vertex_buffer: wgpu::Buffer,
 
-    mid_texture_view: wgpu::TextureView,
+    base_texture_view: wgpu::TextureView,
     effect_texture_view: wgpu::TextureView,
 
     diffuse_bind_group: wgpu::BindGroup,
     effect_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
 
-    mid_render_pipeline: wgpu::RenderPipeline,
+    base_render_pipeline: wgpu::RenderPipeline,
     effect_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
 }
@@ -105,16 +105,15 @@ impl Renderer {
         let size = window.inner_size();
 
         // ------------------------------------------------------------------------------------------------- load shaders
-        let mid_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        let base_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/mid.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/base.wgsl"))),
         });
-        // ------------------------------------------------------------------------------------------------- load shaders
+
         let effect_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/effect.wgsl"))),
         });
-        // ------------------------------------------------------------------------------------------------- load shaders
         let scaler_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/scaler.wgsl"))),
@@ -139,6 +138,7 @@ impl Renderer {
                 contents: bytemuck::cast_slice(FULLSCREEN_VERTICES),
                 usage: wgpu::BufferUsages::VERTEX,
             });
+
         // ----------------------------------------------------------------------------------------- surface to draw onto
         let surface = instance.create_surface(window.clone()).unwrap();
         let cap = surface.get_capabilities(&adapter);
@@ -152,6 +152,16 @@ impl Renderer {
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::MipmapFilterMode::Nearest,
+            ..Default::default()
+        });
+
+        let sampler_linear = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
             ..Default::default()
         });
 
@@ -239,16 +249,16 @@ impl Renderer {
             ],
         });
 
-        // ------------------------------------------------------------------------------------- mid texture to draw onto
-        let mid_texture_size = wgpu::Extent3d {
+        // ------------------------------------------------------------------------------------ base texture to draw onto
+        let base_texture_size = wgpu::Extent3d {
             width: LOGIC_WIDTH,
             height: LOGIC_HEIGHT,
             depth_or_array_layers: 1,
         };
 
-        let mid_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("mid texture"),
-            size: mid_texture_size,
+        let base_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+            label: Some("base texture"),
+            size: base_texture_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -259,13 +269,13 @@ impl Renderer {
             view_formats: &[],
         });
 
-        // --------------------------------------------------------------------------------------------- mid texture view
-        let mid_texture_view = mid_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        // -------------------------------------------------------------------------------------------- base texture view
+        let base_texture_view = base_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
         // ---------------------------------------------------------------------------------- effect texture to draw onto
         let effect_texture_size = wgpu::Extent3d {
             width: LOGIC_WIDTH,
-            height: LOGIC_HEIGHT,
+            height: LOGIC_HEIGHT / 2,
             depth_or_array_layers: 1,
         };
 
@@ -336,11 +346,11 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&mid_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
                 },
             ],
         });
@@ -363,6 +373,16 @@ impl Renderer {
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
@@ -375,33 +395,37 @@ impl Renderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&effect_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                    resource: wgpu::BindingResource::TextureView(&effect_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
                 },
             ],
         });
 
-        // ------------------------------------------------------------------------------------------------- mid pipeline
-        let mid_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("render pipeline layout for mid texture"),
+        // ------------------------------------------------------------------------------------------------ base pipeline
+        let base_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("render pipeline layout for base texture"),
             bind_group_layouts: &[Some(&diffuse_texture_bind_group_lauout)],
             immediate_size: 0,
         });
 
-        let mid_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("render pipeline for mid texture"),
-            layout: Some(&mid_pipeline_layout),
+        let base_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("render pipeline for base texture"),
+            layout: Some(&base_pipeline_layout),
             vertex: wgpu::VertexState {
-                module: &mid_shader,
+                module: &base_shader,
                 entry_point: Some("vs_main"),
                 buffers: &[Vertex::desc()],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
-                module: &mid_shader,
+                module: &base_shader,
                 entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(wgpu::ColorTargetState {
@@ -417,7 +441,7 @@ impl Renderer {
             cache: None,
         });
 
-        // ------------------------------------------------------------------------ pipeline to sample mid and add effect
+        // ----------------------------------------------------------------------- pipeline to sample base and add effect
         let effect_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render pipeline layout for surface"),
@@ -500,14 +524,14 @@ impl Renderer {
 
             uniform_buffer,
 
-            mid_texture_view,
+            base_texture_view,
             effect_texture_view,
 
             diffuse_bind_group,
             effect_bind_group,
             scaler_bind_group,
 
-            mid_render_pipeline,
+            base_render_pipeline,
             effect_render_pipeline,
             scaler_render_pipeline,
         };
@@ -569,11 +593,11 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
-        // ------------------------------------------------------------------------------------------- renderpass for mid
-        let mut mid_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("mid renderpass"),
+        // ------------------------------------------------------------------------------------------ renderpass for base
+        let mut base_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("base renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &self.mid_texture_view,
+                view: &self.base_texture_view,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
@@ -588,14 +612,14 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------------- use the renderpass
-        mid_renderpass.set_pipeline(&self.mid_render_pipeline);
-        mid_renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
-        mid_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
-        mid_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
-        mid_renderpass.draw(0..3, 0..1);
+        base_renderpass.set_pipeline(&self.base_render_pipeline);
+        base_renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
+        base_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        base_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
+        base_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
-        drop(mid_renderpass);
+        drop(base_renderpass);
 
         // ---------------------------------------------------------------------------------------- renderpass for effect
         let mut effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -605,7 +629,7 @@ impl Renderer {
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
                     store: wgpu::StoreOp::Store,
                 },
             })],
@@ -619,7 +643,6 @@ impl Renderer {
         effect_renderpass.set_pipeline(&self.effect_render_pipeline);
         effect_renderpass.set_bind_group(0, Some(&self.effect_bind_group), &[]);
         effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
-        effect_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         effect_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
@@ -669,23 +692,23 @@ impl Renderer {
     }
 
     fn calc_ratio(&self) -> [f32; 4] {
-        let mid_w = LOGIC_WIDTH as f32;
-        let mid_h = LOGIC_HEIGHT as f32;
+        let w = LOGIC_WIDTH as f32;
+        let h = LOGIC_HEIGHT as f32;
 
         let surface_w = self.window.inner_size().width as f32;
         let surface_h = self.window.inner_size().height as f32;
 
-        let mid_ratio = mid_h / mid_w;
+        let ratio = h / w;
         let surface_ratio = surface_h / surface_w;
 
-        let ratio = if mid_ratio <= surface_ratio {
-            surface_w / mid_w
+        let ratio = if ratio <= surface_ratio {
+            surface_w / w
         } else {
-            surface_h / mid_h
+            surface_h / h
         };
 
-        let w = mid_w * ratio;
-        let h = mid_h * ratio;
+        let w = w * ratio;
+        let h = h * ratio;
 
         let x = (surface_w - w) / 2.0;
         let y = (surface_h - h) / 2.0;

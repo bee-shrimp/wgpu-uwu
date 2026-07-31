@@ -70,10 +70,10 @@ impl ApplicationHandler for App {
                 {
                     match code {
                         KeyCode::ArrowUp => {
-                            self.input += 0.005;
+                            self.input += 0.1;
                         }
                         KeyCode::ArrowDown => {
-                            self.input -= 0.005;
+                            self.input -= 0.1;
                         }
                         _ => (),
                     }
