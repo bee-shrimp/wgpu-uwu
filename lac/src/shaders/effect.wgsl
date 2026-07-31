@@ -39,10 +39,16 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let end = 0.0;
     let mapped_uv_y = start + uv.y * (end - start);
 
-    var offset = sin((1.0 - uv.y) * time * uv.y * 2) / 100;
+    let frequency = 5.0; // 1.0-5.0
+    let amplitude = 0.05; // 0.01-0.2
+    let speed = 0.5; // 0.5-5.0
 
-    uv.x += offset;
-    uv.y = mapped_uv_y;
+    var offset_x = sin((1.0 - uv.y) * frequency + time * speed) * amplitude;
+    var offset_y = sin((1.0 - uv.y) * (frequency + 5.0) + time * (speed + 0.2)) * (amplitude - 0.03);
+    // let result = sin(base * frequency + phase) * amplitude
+
+    uv.x += offset_x;
+    uv.y = mapped_uv_y + offset_y;
 
     let colour = textureSample(mid_texture, effect_sampler, uv);
     return vec4(colour.rgb, 0.5);
