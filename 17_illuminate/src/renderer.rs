@@ -45,7 +45,7 @@ impl Vertex {
     }
 }
 
-// ---------------------------------------------------------------------------------------- data for effect vertex buffer
+// ---------------------------------------------------------------------------------------- data for full screen triangle
 const FULLSCREEN_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left
@@ -78,18 +78,18 @@ pub struct Renderer {
     base_texture_view: wgpu::TextureView,
     extract_texture_view: wgpu::TextureView,
     l1_texture_view: wgpu::TextureView,
-    effect_texture_view: wgpu::TextureView,
+    l2_texture_view: wgpu::TextureView,
 
     resource_bind_group: wgpu::BindGroup,
     extract_bind_group: wgpu::BindGroup,
     l1_bind_group: wgpu::BindGroup,
-    effect_bind_group: wgpu::BindGroup,
+    l2_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
 
     base_render_pipeline: wgpu::RenderPipeline,
     extract_render_pipeline: wgpu::RenderPipeline,
     l1_render_pipeline: wgpu::RenderPipeline,
-    effect_render_pipeline: wgpu::RenderPipeline,
+    l2_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
 }
 
@@ -130,12 +130,7 @@ impl Renderer {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/extract.wgsl"))),
         });
-        let effect_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: None,
-            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!(
-                "shaders/illuminate.wgsl"
-            ))),
-        });
+
         let scaler_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/scaler.wgsl"))),
@@ -257,8 +252,8 @@ impl Renderer {
             &device,
             "l1 texture",
             &Size {
-                width: LOGIC_WIDTH / 8,
-                height: LOGIC_HEIGHT / 8,
+                width: LOGIC_WIDTH / 2,
+                height: LOGIC_HEIGHT / 2,
             },
         );
         let l1_bind_group = bind_group_builder(
@@ -269,74 +264,21 @@ impl Renderer {
             &sampler_linear,
         );
 
-        // ---------------------------------------------------------------------------------- effect texture to draw onto
-        let effect_texture_view = texture_builder(
+        let l2_texture_view = texture_builder(
             &device,
-            "effect texture",
+            "l2 texture",
             &Size {
-                width: LOGIC_WIDTH,
-                height: LOGIC_HEIGHT,
+                width: LOGIC_WIDTH / 4,
+                height: LOGIC_HEIGHT / 4,
             },
         );
-
-        // -------------------------------------------------------------------------------------------- effect bind group
-        let effect_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("effect bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Buffer {
-                            ty: wgpu::BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: wgpu::BufferSize::new(
-                                std::mem::size_of::<Uniforms>() as u64,
-                            ),
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 2,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
-
-        let effect_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("effect bind group"),
-            layout: &effect_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
-                        buffer: &uniform_buffer,
-                        offset: 0,
-                        size: None,
-                    }),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&extract_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
-                },
-            ],
-        });
+        let l2_bind_group = bind_group_builder(
+            &device,
+            "l2 bind group",
+            &simple_bind_group_layout,
+            &extract_texture_view,
+            &sampler_linear,
+        );
 
         // -------------------------------------------------------------------------------------------- scaler bind group
         let scaler_bind_group_layout =
@@ -346,16 +288,18 @@ impl Renderer {
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
                             sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2,
@@ -364,9 +308,23 @@ impl Renderer {
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
-                        binding: 2,
+                        binding: 3,
                         visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 4,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
                         count: None,
                     },
                 ],
@@ -378,15 +336,23 @@ impl Renderer {
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&l1_texture_view),
+                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
+                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: wgpu::BindingResource::TextureView(&l1_texture_view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: wgpu::BindingResource::TextureView(&l2_texture_view),
                 },
             ],
         });
@@ -415,12 +381,12 @@ impl Renderer {
             &blur_shader,
         );
 
-        // ---------------------------------------------------------------------- pipeline to sample base and add effect
-        let effect_render_pipeline = pipeline_builder(
+        // ---------------------------------------------------------------------- pipeline to sample base and add l2
+        let l2_render_pipeline = pipeline_builder(
             &device,
-            "render pipeline for effect",
-            &effect_bind_group_layout,
-            &effect_shader,
+            "render pipeline for l2",
+            &simple_bind_group_layout,
+            &blur_shader,
         );
 
         // ------------------------------------------------------------------------------------------ pipeline for scaler
@@ -474,18 +440,18 @@ impl Renderer {
             base_texture_view,
             extract_texture_view,
             l1_texture_view,
-            effect_texture_view,
+            l2_texture_view,
 
             resource_bind_group,
             extract_bind_group,
             l1_bind_group,
-            effect_bind_group,
+            l2_bind_group,
             scaler_bind_group,
 
             base_render_pipeline,
             extract_render_pipeline,
             l1_render_pipeline,
-            effect_render_pipeline,
+            l2_render_pipeline,
             scaler_render_pipeline,
         };
 
@@ -628,11 +594,11 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(l1_renderpass);
 
-        // ---------------------------------------------------------------------------------------- renderpass for effect
-        let mut effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("effect renderpass"),
+        // ---------------------------------------------------------------------------------------- renderpass for l2
+        let mut l2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("l2 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &self.effect_texture_view,
+                view: &self.l2_texture_view,
                 depth_slice: None,
                 resolve_target: None,
                 ops: wgpu::Operations {
@@ -647,13 +613,13 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------------- use the renderpass
-        effect_renderpass.set_pipeline(&self.effect_render_pipeline);
-        effect_renderpass.set_bind_group(0, Some(&self.effect_bind_group), &[]);
-        effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
-        effect_renderpass.draw(0..3, 0..1);
+        l2_renderpass.set_pipeline(&self.l2_render_pipeline);
+        l2_renderpass.set_bind_group(0, Some(&self.l2_bind_group), &[]);
+        l2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        l2_renderpass.draw(0..3, 0..1);
 
         // ------------------------------------------------------------------------------------------- end the renderpass
-        drop(effect_renderpass);
+        drop(l2_renderpass);
 
         // --------------------------------------------------------------------------------------- renderpass for surface
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -797,7 +763,7 @@ fn pipeline_builder(
     bind_group_layout: &wgpu::BindGroupLayout,
     shader: &wgpu::ShaderModule,
 ) -> wgpu::RenderPipeline {
-    // ----------------------------------------------------------------------- pipeline to sample base and add effect
+    // ----------------------------------------------------------------------- pipeline to sample base and add l2
     let new_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some(label),
         bind_group_layouts: &[Some(&bind_group_layout)],
