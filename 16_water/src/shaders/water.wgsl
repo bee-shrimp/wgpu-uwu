@@ -39,18 +39,23 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let end = 0.0;
     let mapped_uv_y = start + uv.y * (end - start);
 
-    let frequency = 11.0; // 1.0-5.0
-    let amplitude = 0.007; // 0.01-0.2
-    let speed = 0.2; // 0.5-5.0
+    let base_frequency = 11.0;
+    let base_speed = 0.2;
+    let amplitude = 0.007;
 
     let inverse_y = 1.0 - uv.y;
     let inverse_x = 1.0 - uv.x;
 
-    let offset_x1 = sin(inverse_y * frequency + time * speed) * amplitude * 0.5;
-    let offset_x2 = sin(inverse_y * (frequency * 5.0) + time * (speed * 1.7)) * (amplitude * 0.4);
-    let offset_x3 = sin(inverse_y * (frequency * 11.0) + time * (speed * 2.1)) * (amplitude * 0.3);
-    let offset_y1 = sin(inverse_x * (frequency * 4.0) + time * (speed * 1.1)) * (amplitude * 0.2);
-    let offset_y2 = sin(inverse_x * (frequency * 8.0) + time * (speed * 1.3)) * (amplitude * 0.1);
+    let frequency_y = inverse_y * base_frequency;
+    let frequency_x = inverse_x * base_frequency;
+
+    let speed = time * base_speed;
+
+    let offset_x1 = sin(frequency_y + speed) * amplitude * 0.5;
+    let offset_x2 = sin((frequency_y * 5.0) + (speed * 1.7)) * (amplitude * 0.4);
+    let offset_x3 = sin((frequency_y * 11.0) + (speed * 2.1)) * (amplitude * 0.3);
+    let offset_y1 = sin((frequency_x * 4.0) + (speed * 1.1)) * (amplitude * 0.4);
+    let offset_y2 = sin((frequency_x * 8.0) + (speed * 1.3)) * (amplitude * 0.2);
 
     uv.x = uv.x + (offset_x1 + offset_x2 + offset_x3) * intensity;
     uv.y = mapped_uv_y + (offset_y1 + offset_y2) * intensity;
@@ -58,12 +63,4 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let colour = textureSample(mid_texture, effect_sampler, uv);
     return vec4(colour.rgb, 0.6);
 }
-
-fn rand(time: f32, uv_y: f32) -> f32 {
-    let seeds = vec2<f32>(time, uv_y);
-    let randf = fract(sin(dot(seeds, vec2(12.9898, 78.233))) * 43758.5453);
-
-    return randf;
-}
-
 

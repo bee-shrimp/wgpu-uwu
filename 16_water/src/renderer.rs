@@ -155,15 +155,15 @@ impl Renderer {
             ..Default::default()
         });
 
-        let sampler_linear = device.create_sampler(&wgpu::SamplerDescriptor {
-            address_mode_u: wgpu::AddressMode::ClampToEdge,
-            address_mode_v: wgpu::AddressMode::ClampToEdge,
-            address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::MipmapFilterMode::Linear,
-            ..Default::default()
-        });
+        // let sampler_linear = device.create_sampler(&wgpu::SamplerDescriptor {
+        //     address_mode_u: wgpu::AddressMode::ClampToEdge,
+        //     address_mode_v: wgpu::AddressMode::ClampToEdge,
+        //     address_mode_w: wgpu::AddressMode::ClampToEdge,
+        //     mag_filter: wgpu::FilterMode::Linear,
+        //     min_filter: wgpu::FilterMode::Linear,
+        //     mipmap_filter: wgpu::MipmapFilterMode::Linear,
+        //     ..Default::default()
+        // });
 
         // -------------------------------------------------------------------------------------------------------- image
         let diffuse_bytes = include_bytes!("../img/lakeside.png");
@@ -351,7 +351,7 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
                 },
             ],
         });
@@ -404,7 +404,7 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
+                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
                 },
             ],
         });
