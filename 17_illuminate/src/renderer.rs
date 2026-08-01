@@ -80,7 +80,7 @@ pub struct Renderer {
     l1_texture_view: wgpu::TextureView,
     effect_texture_view: wgpu::TextureView,
 
-    diffuse_bind_group: wgpu::BindGroup,
+    resource_bind_group: wgpu::BindGroup,
     extract_bind_group: wgpu::BindGroup,
     l1_bind_group: wgpu::BindGroup,
     effect_bind_group: wgpu::BindGroup,
@@ -177,15 +177,15 @@ impl Renderer {
             ..Default::default()
         });
 
-        // let sampler_linear = device.create_sampler(&wgpu::SamplerDescriptor {
-        //     address_mode_u: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_v: wgpu::AddressMode::ClampToEdge,
-        //     address_mode_w: wgpu::AddressMode::ClampToEdge,
-        //     mag_filter: wgpu::FilterMode::Linear,
-        //     min_filter: wgpu::FilterMode::Linear,
-        //     mipmap_filter: wgpu::MipmapFilterMode::Linear,
-        //     ..Default::default()
-        // });
+        let sampler_linear = device.create_sampler(&wgpu::SamplerDescriptor {
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::MipmapFilterMode::Linear,
+            ..Default::default()
+        });
 
         // ------------------------------------------------------------ bind group layout for simple sampling and drawing
         let simple_bind_group_layout =
@@ -213,66 +213,17 @@ impl Renderer {
 
         // -------------------------------------------------------------------------------------------------------- image
         let resource_bytes = include_bytes!("../img/illumination_test.png");
+
         let resource_texture_view =
             resource_texture_builder(&device, &queue, resource_bytes, "resource texture");
-        // let diffuse_bytes = include_bytes!("../img/illumination_test.png");
-        // let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-        //
-        // let diffuse_rgba = diffuse_image.to_rgba8();
-        // let dimentions = diffuse_image.dimensions();
-        //
-        // // ---------------------------------------------------------------------------------------------- diffuse texture
-        // let diffuse_texture_size = wgpu::Extent3d {
-        //     width: dimentions.0,
-        //     height: dimentions.1,
-        //     depth_or_array_layers: 1,
-        // };
-        //
-        // let diffuse_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-        //     label: Some("diffuse_texture"),
-        //     size: diffuse_texture_size,
-        //     mip_level_count: 1,
-        //     sample_count: 1,
-        //     dimension: wgpu::TextureDimension::D2,
-        //     format: wgpu::TextureFormat::Rgba8UnormSrgb,
-        //     usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-        //     view_formats: &[],
-        // });
-        //
-        // queue.write_texture(
-        //     wgpu::TexelCopyTextureInfo {
-        //         texture: &diffuse_texture,
-        //         mip_level: 0,
-        //         origin: wgpu::Origin3d::ZERO,
-        //         aspect: wgpu::TextureAspect::All,
-        //     },
-        //     &diffuse_rgba,
-        //     wgpu::TexelCopyBufferLayout {
-        //         offset: 0,
-        //         bytes_per_row: Some(4 * dimentions.0),
-        //         rows_per_image: Some(dimentions.1),
-        //     },
-        //     diffuse_texture_size,
-        // );
-        //
-        // // ------------------------------------------------------------------------------------------------- texture view
-        // let diffuse_texture_view =
-        //     diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-        //
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("diffuse bind group"),
-            layout: &simple_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&resource_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
-                },
-            ],
-        });
+
+        let resource_bind_group = bind_group_builder(
+            &device,
+            "resource bind group",
+            &simple_bind_group_layout,
+            &resource_texture_view,
+            &sampler_nearest,
+        );
 
         // ------------------------------------------------------------------------------------ base texture to draw onto
         let base_texture_view = texture_builder(
@@ -306,8 +257,8 @@ impl Renderer {
             &device,
             "l1 texture",
             &Size {
-                width: LOGIC_WIDTH / 2,
-                height: LOGIC_HEIGHT / 2,
+                width: LOGIC_WIDTH / 8,
+                height: LOGIC_HEIGHT / 8,
             },
         );
         let l1_bind_group = bind_group_builder(
@@ -315,7 +266,7 @@ impl Renderer {
             "l1 bind group",
             &simple_bind_group_layout,
             &extract_texture_view,
-            &sampler_nearest,
+            &sampler_linear,
         );
 
         // ---------------------------------------------------------------------------------- effect texture to draw onto
@@ -435,7 +386,7 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
+                    resource: wgpu::BindingResource::Sampler(&sampler_linear),
                 },
             ],
         });
@@ -525,7 +476,7 @@ impl Renderer {
             l1_texture_view,
             effect_texture_view,
 
-            diffuse_bind_group,
+            resource_bind_group,
             extract_bind_group,
             l1_bind_group,
             effect_bind_group,
@@ -615,7 +566,7 @@ impl Renderer {
 
         // ------------------------------------------------------------------------------------------- use the renderpass
         base_renderpass.set_pipeline(&self.base_render_pipeline);
-        base_renderpass.set_bind_group(0, Some(&self.diffuse_bind_group), &[]);
+        base_renderpass.set_bind_group(0, Some(&self.resource_bind_group), &[]);
         base_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         base_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         base_renderpass.draw(0..3, 0..1);

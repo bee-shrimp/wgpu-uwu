@@ -29,12 +29,12 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let base_colour = textureSample(base_texture, scaler_sampler, in.uv).rgb;
+    let base_colour = textureSample(base_texture, scaler_sampler, in.uv);
 
     let effect_colour = textureSample(effect_texture, scaler_sampler, in.uv);
 
     //let blend = (base_colour.rgb * (1.0 - effect_colour.a) + effect_colour.rgb * effect_colour.a);
-    let blend = base_colour.rgb + effect_colour.rgb;
+    let blend = base_colour + effect_colour;
 
-    return vec4<f32>(blend, 1.0);
+    return vec4<f32>(blend);
 }

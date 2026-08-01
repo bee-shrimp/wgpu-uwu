@@ -35,26 +35,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let intensity = locals.input * 10.0;
     var uv = in.uv;
 
-    let base_uv = in.uv;
-    let size = textureDimensions(mid_texture, 0);
-    let texel_size = 1.0 / vec2<f32>(f32(size.x), f32(size.y));
-    let center_uv = base_uv + texel_size * 0.5;
-
-    let weight0 = 4.0 / 16.0;
-    let weight1 = 2.0 / 16.0;
-    let weight2 = 1.0 / 16.0;
-
-    var bright_colour = textureSample(mid_texture, effect_sampler, center_uv) * weight0;
-
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(1.0, 0.0) * texel_size) * weight1;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(-1.0, 0.0) * texel_size) * weight1;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(0.0, 1.0) * texel_size) * weight1;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(0.0, -1.0) * texel_size) * weight1;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(1.0, 1.0) * texel_size) * weight2;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(1.0, -1.0) * texel_size) * weight2;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(-1.0, 1.0) * texel_size) * weight2;
-    bright_colour += textureSample(mid_texture, effect_sampler, center_uv + vec2(-1.0, -1.0) * texel_size) * weight2;
-
-    return vec4(bright_colour.rgb, 0.8);
+    let bright_colour = textureSample(mid_texture, effect_sampler, uv);
+    return vec4(bright_colour.rgb, 0.0);
 }
 
