@@ -121,6 +121,11 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/base.wgsl"))),
         });
 
+        let blur_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/base.wgsl"))),
+        });
+
         let extract_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/extract.wgsl"))),
@@ -182,56 +187,10 @@ impl Renderer {
         //     ..Default::default()
         // });
 
-        // -------------------------------------------------------------------------------------------------------- image
-        let diffuse_bytes = include_bytes!("../img/illumination_test.png");
-        // let diffuse_bytes = include_bytes!("../img/water_test.png");
-        let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
-
-        let diffuse_rgba = diffuse_image.to_rgba8();
-        let dimentions = diffuse_image.dimensions();
-
-        // ---------------------------------------------------------------------------------------------- diffuse texture
-        let diffuse_texture_size = wgpu::Extent3d {
-            width: dimentions.0,
-            height: dimentions.1,
-            depth_or_array_layers: 1,
-        };
-
-        let diffuse_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("diffuse_texture"),
-            size: diffuse_texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        queue.write_texture(
-            wgpu::TexelCopyTextureInfo {
-                texture: &diffuse_texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-                aspect: wgpu::TextureAspect::All,
-            },
-            &diffuse_rgba,
-            wgpu::TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(4 * dimentions.0),
-                rows_per_image: Some(dimentions.1),
-            },
-            diffuse_texture_size,
-        );
-
-        // ------------------------------------------------------------------------------------------------- texture view
-        let diffuse_texture_view =
-            diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        // ------------------------------------------------------------------------------------------- texture bind group
-        let diffuse_texture_bind_group_lauout =
+        // ------------------------------------------------------------ bind group layout for simple sampling and drawing
+        let simple_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("diffuse texture bind group layout"),
+                label: Some("simple bind group layout for sampling and drawing"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
@@ -252,13 +211,61 @@ impl Renderer {
                 ],
             });
 
+        // -------------------------------------------------------------------------------------------------------- image
+        let resource_bytes = include_bytes!("../img/illumination_test.png");
+        let resource_texture_view =
+            resource_texture_builder(&device, &queue, resource_bytes, "resource texture");
+        // let diffuse_bytes = include_bytes!("../img/illumination_test.png");
+        // let diffuse_image = image::load_from_memory(diffuse_bytes).unwrap();
+        //
+        // let diffuse_rgba = diffuse_image.to_rgba8();
+        // let dimentions = diffuse_image.dimensions();
+        //
+        // // ---------------------------------------------------------------------------------------------- diffuse texture
+        // let diffuse_texture_size = wgpu::Extent3d {
+        //     width: dimentions.0,
+        //     height: dimentions.1,
+        //     depth_or_array_layers: 1,
+        // };
+        //
+        // let diffuse_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+        //     label: Some("diffuse_texture"),
+        //     size: diffuse_texture_size,
+        //     mip_level_count: 1,
+        //     sample_count: 1,
+        //     dimension: wgpu::TextureDimension::D2,
+        //     format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        //     usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        //     view_formats: &[],
+        // });
+        //
+        // queue.write_texture(
+        //     wgpu::TexelCopyTextureInfo {
+        //         texture: &diffuse_texture,
+        //         mip_level: 0,
+        //         origin: wgpu::Origin3d::ZERO,
+        //         aspect: wgpu::TextureAspect::All,
+        //     },
+        //     &diffuse_rgba,
+        //     wgpu::TexelCopyBufferLayout {
+        //         offset: 0,
+        //         bytes_per_row: Some(4 * dimentions.0),
+        //         rows_per_image: Some(dimentions.1),
+        //     },
+        //     diffuse_texture_size,
+        // );
+        //
+        // // ------------------------------------------------------------------------------------------------- texture view
+        // let diffuse_texture_view =
+        //     diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        //
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("diffuse bind group"),
-            layout: &diffuse_texture_bind_group_lauout,
+            layout: &simple_bind_group_layout,
             entries: &[
                 wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&resource_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
@@ -268,124 +275,58 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------ base texture to draw onto
-        let base_texture_size = wgpu::Extent3d {
-            width: LOGIC_WIDTH,
-            height: LOGIC_HEIGHT,
-            depth_or_array_layers: 1,
-        };
-
-        let base_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("base texture"),
-            size: base_texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        // -------------------------------------------------------------------------------------------- base texture view
-        let base_texture_view = base_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        // ------------------------------------------------------------------------------------ extract texture to draw onto
-        let extract_texture_size = wgpu::Extent3d {
-            width: LOGIC_WIDTH,
-            height: LOGIC_HEIGHT,
-            depth_or_array_layers: 1,
-        };
-
-        let extract_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("extract texture"),
-            size: extract_texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        // -------------------------------------------------------------------------------------------- extract texture view
-        let extract_texture_view =
-            extract_texture.create_view(&wgpu::TextureViewDescriptor::default());
-
-        // -------------------------------------------------------------------------------------------- extract bind group
-        let extract_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                label: Some("extract bind group layout"),
-                entries: &[
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            view_dimension: wgpu::TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    wgpu::BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: wgpu::ShaderStages::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-            });
-
-        let extract_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("extract bind group"),
-            layout: &extract_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&base_texture_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&sampler_nearest),
-                },
-            ],
-        });
-
-        let (l1_texture_view, l1_bind_group_layout, l1_bind_group) = effect_texture_builder(
+        let base_texture_view = texture_builder(
             &device,
+            "base texture",
             &Size {
-                width: LOGIC_WIDTH / 2,
-                height: LOGIC_HEIGHT / 2,
+                width: LOGIC_WIDTH,
+                height: LOGIC_HEIGHT,
             },
+        );
+
+        // -------------------------------------------------------------------------- extract texture view and bind group
+        let extract_texture_view = texture_builder(
+            &device,
+            "extract texture",
+            &Size {
+                width: LOGIC_WIDTH,
+                height: LOGIC_HEIGHT,
+            },
+        );
+        let extract_bind_group = bind_group_builder(
+            &device,
+            "extract bind group",
+            &simple_bind_group_layout,
             &base_texture_view,
             &sampler_nearest,
         );
 
+        // --------------------------------------------------------------------------- smaller texture to make image blur
+        let l1_texture_view = texture_builder(
+            &device,
+            "l1 texture",
+            &Size {
+                width: LOGIC_WIDTH / 2,
+                height: LOGIC_HEIGHT / 2,
+            },
+        );
+        let l1_bind_group = bind_group_builder(
+            &device,
+            "l1 bind group",
+            &simple_bind_group_layout,
+            &extract_texture_view,
+            &sampler_nearest,
+        );
+
         // ---------------------------------------------------------------------------------- effect texture to draw onto
-        let effect_texture_size = wgpu::Extent3d {
-            width: LOGIC_WIDTH,
-            height: LOGIC_HEIGHT,
-            depth_or_array_layers: 1,
-        };
-
-        let effect_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-            label: Some("effect texture"),
-            size: effect_texture_size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING
-                | wgpu::TextureUsages::RENDER_ATTACHMENT
-                | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
-
-        // ------------------------------------------------------------------------------------------ effect texture view
-        let effect_texture_view =
-            effect_texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let effect_texture_view = texture_builder(
+            &device,
+            "effect texture",
+            &Size {
+                width: LOGIC_WIDTH,
+                height: LOGIC_HEIGHT,
+            },
+        );
 
         // -------------------------------------------------------------------------------------------- effect bind group
         let effect_bind_group_layout =
@@ -500,114 +441,36 @@ impl Renderer {
         });
 
         // ------------------------------------------------------------------------------------------------ base pipeline
-        let base_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            label: Some("render pipeline layout for base texture"),
-            bind_group_layouts: &[Some(&diffuse_texture_bind_group_lauout)],
-            immediate_size: 0,
-        });
-
-        let base_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("render pipeline for base texture"),
-            layout: Some(&base_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &base_shader,
-                entry_point: Some("vs_main"),
-                buffers: &[Vertex::desc()],
-                compilation_options: Default::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &base_shader,
-                entry_point: Some("fs_main"),
-                compilation_options: Default::default(),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                    blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-            }),
-            primitive: wgpu::PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
-            multiview_mask: None,
-            cache: None,
-        });
-
-        // ----------------------------------------------------------------------- pipeline to sample base and add extract
-        let extract_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("render pipeline layout for surface"),
-                bind_group_layouts: &[Some(&extract_bind_group_layout)],
-                immediate_size: 0,
-            });
-
-        let extract_render_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("render pipeline for extract"),
-                layout: Some(&extract_pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &extract_shader,
-                    entry_point: Some("vs_main"),
-                    buffers: &[Vertex::desc()],
-                    compilation_options: Default::default(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &extract_shader,
-                    entry_point: Some("fs_main"),
-                    compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview_mask: None,
-                cache: None,
-            });
-
-        let l1_render_pipeline = pipeline_builder(
+        let base_render_pipeline = pipeline_builder(
             &device,
-            "render pipeline for l1",
-            &l1_bind_group_layout,
+            "render pipeline for base",
+            &simple_bind_group_layout,
             &base_shader,
         );
 
-        // ----------------------------------------------------------------------- pipeline to sample base and add effect
-        let effect_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: Some("render pipeline layout for surface"),
-                bind_group_layouts: &[Some(&effect_bind_group_layout)],
-                immediate_size: 0,
-            });
+        // --------------------------------------------------------------------- pipeline to sample base and add extract
+        let extract_render_pipeline = pipeline_builder(
+            &device,
+            "render pipeline for extract",
+            &simple_bind_group_layout,
+            &extract_shader,
+        );
 
-        let effect_render_pipeline =
-            device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("render pipeline for effect"),
-                layout: Some(&effect_pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &effect_shader,
-                    entry_point: Some("vs_main"),
-                    buffers: &[Vertex::desc()],
-                    compilation_options: Default::default(),
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &effect_shader,
-                    entry_point: Some("fs_main"),
-                    compilation_options: Default::default(),
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                        blend: Some(wgpu::BlendState::ALPHA_BLENDING),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview_mask: None,
-                cache: None,
-            });
+        // -------------------------------------------------------------------------- pipeline to sample and draw smaller
+        let l1_render_pipeline = pipeline_builder(
+            &device,
+            "render pipeline for l1",
+            &simple_bind_group_layout,
+            &blur_shader,
+        );
+
+        // ---------------------------------------------------------------------- pipeline to sample base and add effect
+        let effect_render_pipeline = pipeline_builder(
+            &device,
+            "render pipeline for effect",
+            &effect_bind_group_layout,
+            &effect_shader,
+        );
 
         // ------------------------------------------------------------------------------------------ pipeline for scaler
         let scaler_pipeline_layout =
@@ -927,12 +790,7 @@ impl Renderer {
     }
 }
 
-fn effect_texture_builder(
-    device: &wgpu::Device,
-    size: &Size,
-    resource: &wgpu::TextureView,
-    sampler: &wgpu::Sampler,
-) -> (wgpu::TextureView, wgpu::BindGroupLayout, wgpu::BindGroup) {
+fn texture_builder(device: &wgpu::Device, label: &str, size: &Size) -> wgpu::TextureView {
     // ------------------------------------------------------------------------------------ new texture to draw onto
     let new_texture_size = wgpu::Extent3d {
         width: size.width,
@@ -941,7 +799,7 @@ fn effect_texture_builder(
     };
 
     let new_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
-        label: Some("new texture"),
+        label: Some(label),
         size: new_texture_size,
         mip_level_count: 1,
         sample_count: 1,
@@ -954,34 +812,20 @@ fn effect_texture_builder(
     });
 
     // -------------------------------------------------------------------------------------------- new texture view
-    let new_texture_view = new_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    new_texture.create_view(&wgpu::TextureViewDescriptor::default())
+}
 
-    // -------------------------------------------------------------------------------------------- new bind group
-    let new_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        label: Some("new bind group layout"),
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Texture {
-                    sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                    view_dimension: wgpu::TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                count: None,
-            },
-        ],
-    });
-
+// ----------------------------------------------------------------------- creates simple sample and draw builder
+fn bind_group_builder(
+    device: &wgpu::Device,
+    label: &str,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    resource: &wgpu::TextureView,
+    sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
     let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-        label: Some("new bind group"),
-        layout: &new_bind_group_layout,
+        label: Some(label),
+        layout: &bind_group_layout,
         entries: &[
             wgpu::BindGroupEntry {
                 binding: 0,
@@ -993,7 +837,7 @@ fn effect_texture_builder(
             },
         ],
     });
-    (new_texture_view, new_bind_group_layout, new_bind_group)
+    new_bind_group
 }
 
 fn pipeline_builder(
@@ -1010,7 +854,7 @@ fn pipeline_builder(
     });
 
     let new_render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: Some("render pipeline for new"),
+        label: Some(label),
         layout: Some(&new_pipeline_layout),
         vertex: wgpu::VertexState {
             module: &shader,
@@ -1035,4 +879,54 @@ fn pipeline_builder(
         cache: None,
     });
     new_render_pipeline
+}
+
+fn resource_texture_builder(
+    device: &wgpu::Device,
+    queue: &wgpu::Queue,
+    resource_bytes: &[u8],
+    label: &str,
+) -> wgpu::TextureView {
+    // -------------------------------------------------------------------------------------------------------- image
+    let resource_image = image::load_from_memory(resource_bytes).unwrap();
+
+    let resource_rgba = resource_image.to_rgba8();
+    let dimentions = resource_image.dimensions();
+
+    // ---------------------------------------------------------------------------------------------- resource texture
+    let resource_texture_size = wgpu::Extent3d {
+        width: dimentions.0,
+        height: dimentions.1,
+        depth_or_array_layers: 1,
+    };
+
+    let resource_texture = device.create_texture(&wgpu::wgt::TextureDescriptor {
+        label: Some(label),
+        size: resource_texture_size,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8UnormSrgb,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+        view_formats: &[],
+    });
+
+    queue.write_texture(
+        wgpu::TexelCopyTextureInfo {
+            texture: &resource_texture,
+            mip_level: 0,
+            origin: wgpu::Origin3d::ZERO,
+            aspect: wgpu::TextureAspect::All,
+        },
+        &resource_rgba,
+        wgpu::TexelCopyBufferLayout {
+            offset: 0,
+            bytes_per_row: Some(4 * dimentions.0),
+            rows_per_image: Some(dimentions.1),
+        },
+        resource_texture_size,
+    );
+
+    // ------------------------------------------------------------------------------------------------- texture view
+    resource_texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
