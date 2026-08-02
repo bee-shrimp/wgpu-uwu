@@ -6,9 +6,7 @@ var sampler_linear: sampler;
 @group(0) @binding(2)
 var base_texture: texture_2d<f32>;
 @group(0) @binding(3)
-var l1_texture: texture_2d<f32>;
-@group(0) @binding(4)
-var l2_texture: texture_2d<f32>;
+var bloom_texture: texture_2d<f32>;
 
 struct VertexInput {
     @location(0) position: vec2<f32>,
@@ -35,12 +33,9 @@ fn vs_main(
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let base_colour = textureSample(base_texture, sampler_nearest, in.uv);
 
-    let l1_colour = textureSample(l1_texture, sampler_linear, in.uv);
-    let l2_colour = textureSample(l2_texture, sampler_linear, in.uv);
+    let bloom_colour = textureSample(bloom_texture, sampler_linear, in.uv);
 
-    //let blend = (base_colour.rgb * (1.0 - effect_colour.a) + effect_colour.rgb * effect_colour.a);
-    var blend = base_colour + l1_colour;
-    blend += l2_colour;
+    let blend = base_colour + bloom_colour;
 
     return vec4<f32>(blend);
 }

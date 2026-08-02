@@ -1,7 +1,7 @@
 @group(0) @binding(0)
 var base_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var extract_sampler: sampler;
+var sampler_nearest: sampler;
 
 struct VertexInput {
     @location(0) position: vec2<f32>,
@@ -26,13 +26,14 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let colour = textureSample(base_texture, extract_sampler, in.uv);
+    let colour = textureSample(base_texture, sampler_nearest, in.uv);
     let value = max(colour.r, max(colour.g, colour.b));
 
-    let is_bright = value >= 0.5;
+    let threshold = 0.5;
+    let epsilon = 0.1;
+    let weight = smoothstep(threshold, threshold + epsilon, value);
 
-    let black = vec3<f32>(0.0);
-    let result = select(black, colour.rgb, is_bright);
+    let result = colour.rgb * weight;
 
     return vec4<f32>(result, 1.0);
 }

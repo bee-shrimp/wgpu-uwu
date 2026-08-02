@@ -1,8 +1,8 @@
 
 @group(0) @binding(0)
-var diffuse_texture: texture_2d<f32>;
+var resource_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var mid_sampler: sampler;
+var sampler_nearest: sampler;
 
 struct VertexInput {
     @location(0) position: vec2<f32>,
@@ -27,5 +27,5 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(diffuse_texture, mid_sampler, in.uv);
+    return textureSample(resource_texture, sampler_nearest, in.uv);
 }

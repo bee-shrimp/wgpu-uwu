@@ -1,13 +1,7 @@
-struct Locals {
-    time: f32,
-    input: f32}
-
-@group(0) @binding(0) 
-var<uniform> locals: Locals;
+@group(0) @binding(0)
+var base_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var mid_texture: texture_2d<f32>;
-@group(0) @binding(2)
-var effect_sampler: sampler;
+var sampler_linear: sampler;
 
 struct VertexInput {
     @location(0) position: vec2<f32>,
@@ -29,13 +23,9 @@ fn vs_main(
     out.uv = model.uv;
     return out;
 }
+
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let time = locals.time;
-    let intensity = locals.input * 10.0;
-    var uv = in.uv;
-
-    let bright_colour = textureSample(mid_texture, effect_sampler, uv);
-    return vec4(bright_colour.rgb, 0.0);
+    let colour = textureSample(base_texture, sampler_linear, in.uv);
+    return vec4<f32>(colour.rgb, 0.9);
 }
-
