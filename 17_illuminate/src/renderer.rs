@@ -14,14 +14,6 @@ struct Size {
     height: u32,
 }
 
-// -------------------------------------------------------------------------------------------- struct for uniform buffer
-#[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Uniforms {
-    time: f32,
-    input: f32,
-}
-
 // --------------------------------------------------------------------------------------------- struct for vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -70,8 +62,6 @@ pub struct Renderer {
     size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
-
-    uniform_buffer: wgpu::Buffer,
 
     fullscreen_vertex_buffer: wgpu::Buffer,
 
@@ -151,18 +141,6 @@ impl Renderer {
         let scaler_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("scaler shader"),
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/scaler.wgsl"))),
-        });
-
-        // ----------------------------------------------------------------------------------------------- uniform buffer
-        let initial_uniforms = Uniforms {
-            time: 0.0,
-            input: 0.0,
-        };
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("uniform buffer"),
-            contents: bytemuck::cast_slice(&[initial_uniforms]),
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         // ------------------------------------------------------------------------------------ full screen vertex buffer
@@ -564,8 +542,6 @@ impl Renderer {
             surface_format,
 
             fullscreen_vertex_buffer,
-
-            uniform_buffer,
 
             base_texture_view,
             extract_texture_view,
@@ -988,6 +964,7 @@ impl Renderer {
         [x, y, w, h]
     }
 
+    #[allow(unused)]
     pub fn get_window(&self) -> &Window {
         &self.window
     }
@@ -995,14 +972,6 @@ impl Renderer {
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.configure_surface();
-    }
-
-    pub fn update(&self, time: f32, input: f32) {
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            bytemuck::cast_slice(&[Uniforms { time, input }]),
-        );
     }
 }
 
