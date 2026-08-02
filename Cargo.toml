@@ -17,6 +17,8 @@ members = [
 "14_hue", 
 "15_glitch", 
 "16_water", 
+"17_illuminate", 
+"18_wallpaper", 
 ]
 
 resolver = "3"

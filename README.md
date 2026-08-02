@@ -232,10 +232,10 @@ what it does:
 how it works:
 
 - has 4 textures and 4 pipelines.
-        - base: clear with black and draw triangle.  
-        - mid: clear with transparent and draw white square(alpha=0.5).  
-        - blend: sample base and mid, blend with alpha considered.  
-        - scaler: sample blend and make it bigger.  
+  - base: clear with black and draw triangle.  
+  - mid: clear with transparent and draw white square(alpha=0.5).  
+  - blend: sample base and mid, blend with alpha considered.  
+  - scaler: sample blend and make it bigger.  
 
 what i learnt:
 
@@ -276,17 +276,17 @@ how it works:
 - about_to_wait increases time by 0.002.  
 - uniform_buffer contains the time.  
 - has 3 pipelines.  
-        - mid  
-                - draw an image.  
-        - scaler  
-                - sample mid texture and draw bigger
-                - (not necessary, effect pipeline can do this)  
-                - (too lazy to fix)
-        - effect  
-                - sample and draw scaler texture.  
-                - convert rgb of the texture to hsv.  
-                - rotate hue a little using time from uniform buffer.  
-                - convert hsv back to rgb.  
+  - mid  
+    - draw an image.  
+  - scaler  
+    - sample mid texture and draw bigger
+    - (not necessary, effect pipeline can do this)  
+    - (too lazy to fix)
+  - effect  
+    - sample and draw scaler texture.  
+    - convert rgb of the texture to hsv.  
+    - rotate hue a little using time from uniform buffer.  
+    - convert hsv back to rgb.  
 
 ## 15. glitch  
 
@@ -299,17 +299,17 @@ what it does:
 how it works:
 
 - has 2 pipelines.  
-        - base
-                - draw background.  
-        - mid  
-                - draw fish.  
-        - effect  
-                - sample mid texture.  
-                - make random number using uv.y.  
-                - shift uv.x randomly when the rand is big.  
-        - scaler  
-                - sample and blend base/mid.  
-                - draw bigger on the surface.  
+  - base
+    - draw background.  
+  - mid  
+    - draw fish.  
+  - effect  
+    - sample mid texture.  
+    - make random number using uv.y.  
+    - shift uv.x randomly when the rand is big.  
+  - scaler  
+    - sample and blend base/mid.  
+    - draw bigger on the surface.  
 
 what i learnt
 
@@ -324,3 +324,22 @@ what it does:
 - the lake has wavy reflection of lakeside view.  
 
 how it works:
+
+- base
+  - draw the image as is.  
+- effect
+  - map uv.y 0.0-0.5(upper half) of base to uv.y 0.0-1.0(entire texture).  
+  - add different sin waves to uv with time and coord.  
+- scaler
+  - sample base with nearest sampler.  
+  - sample effect with linear sampler.  
+  - blend them.  
+
+what i learnt
+
+- how difficult water shader is.  
+
+## 17. illuminate
+
+what it does:  
+
