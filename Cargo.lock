@@ -2386,6 +2386,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wallpaper"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "env_logger",
+ "image 0.24.9",
+ "pollster",
+ "wgpu",
+ "winit",
+]
+
+[[package]]
 name = "wasi"
 version = "0.11.1+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
