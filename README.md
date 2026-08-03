@@ -4,7 +4,7 @@ my delusional attempt to learn wgpu.
 the focus is pixel art rendering and post processing.  
 inspired by [parasyte/pixels](https://github.com/parasyte/pixels).  
 
-## 00. blue  
+## 00_blue  
 
 what it is:  
 
@@ -13,7 +13,7 @@ what it is:
 what i did:  
 
 - replaced an outdated method.  
-  - `queue.present(surface_texture)` -> `surface_texture.present()`  
+  - `queue.present(surface_texture) -> surface_texture.present()`  
 - changed clear colour from green to blue.  
 - took notes in comments to understand.  
 
