@@ -1,9 +1,7 @@
 @group(0) @binding(0)
-var sampler_linear: sampler;
+var base_texture: texture_2d<f32>;
 @group(0) @binding(1)
-var a_texture: texture_2d<f32>;
-@group(0) @binding(2)
-var b_texture: texture_2d<f32>;
+var sampler_nearest: sampler;
 
 struct VertexInput {
     @location(0) position: vec2<f32>,
@@ -28,11 +26,14 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let a_colour = textureSample(a_texture, sampler_linear, in.uv);
+    let colour = textureSample(base_texture, sampler_nearest, in.uv);
+    let value = max(colour.r, max(colour.g, colour.b));
 
-    let b_colour = textureSample(b_texture, sampler_linear, in.uv);
+    let threshold = 0.2;
+    let epsilon = 0.1;
+    let weight = smoothstep(threshold, threshold + epsilon, value);
 
-    let blend = (a_colour + b_colour) * 0.75;
+    let result = colour.rgb * weight;
 
-    return vec4<f32>(blend);
+    return vec4<f32>(result, 1.0);
 }

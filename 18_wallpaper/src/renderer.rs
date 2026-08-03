@@ -6,8 +6,17 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
-const LOGIC_WIDTH: u32 = 1920 / 4;
-const LOGIC_HEIGHT: u32 = 1080 / 4;
+const LOGIC_WIDTH: u32 = 1920 / 3;
+const LOGIC_HEIGHT: u32 = 1080 / 3;
+
+const DOWN_WIDTH_1: u32 = LOGIC_WIDTH / 2;
+const DOWN_HEIGHT_1: u32 = LOGIC_HEIGHT / 2;
+
+const DOWN_WIDTH_2: u32 = LOGIC_WIDTH / 4;
+const DOWN_HEIGHT_2: u32 = LOGIC_HEIGHT / 4;
+
+const DOWN_WIDTH_3: u32 = LOGIC_WIDTH / 8;
+const DOWN_HEIGHT_3: u32 = LOGIC_HEIGHT / 8;
 
 const WATER_ZONE: u32 = 3;
 
@@ -47,7 +56,7 @@ impl Vertex {
     }
 }
 
-// ----------------------------------------------------------------------------------- data for water_effect vertex buffer
+// ----------------------------------------------------------------------------------- fullscreen triangle
 const FULLSCREEN_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left
@@ -81,6 +90,7 @@ pub struct Renderer {
     base2_texture_view: wgpu::TextureView,
     cloud_effect_texture_view: wgpu::TextureView,
     water_effect_texture_view: wgpu::TextureView,
+    extract_texture_view: wgpu::TextureView,
     down1_texture_view: wgpu::TextureView,
     down2_texture_view: wgpu::TextureView,
     down3_texture_view: wgpu::TextureView,
@@ -92,6 +102,7 @@ pub struct Renderer {
     diffuse2_bind_group: wgpu::BindGroup,
     cloud_effect_bind_group: wgpu::BindGroup,
     water_effect_bind_group: wgpu::BindGroup,
+    extract_bind_group: wgpu::BindGroup,
     down1_bind_group: wgpu::BindGroup,
     down2_bind_group: wgpu::BindGroup,
     down3_bind_group: wgpu::BindGroup,
@@ -104,6 +115,7 @@ pub struct Renderer {
     base2_render_pipeline: wgpu::RenderPipeline,
     cloud_effect_render_pipeline: wgpu::RenderPipeline,
     water_effect_render_pipeline: wgpu::RenderPipeline,
+    extract_render_pipeline: wgpu::RenderPipeline,
     down1_render_pipeline: wgpu::RenderPipeline,
     down2_render_pipeline: wgpu::RenderPipeline,
     down3_render_pipeline: wgpu::RenderPipeline,
@@ -149,6 +161,11 @@ impl Renderer {
         let water_effect_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/water.wgsl"))),
+        });
+
+        let extract_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("extract shader"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/extract.wgsl"))),
         });
 
         let down_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -328,7 +345,7 @@ impl Renderer {
             "diffuse2 bind group",
             &simple_bind_group_layout,
             &diffuse2_texture_view,
-            &sampler_nearest,
+            &sampler_linear,
         );
 
         // ----------------------------------------------------------------------------------- base texture
@@ -386,20 +403,37 @@ impl Renderer {
             &sampler_linear,
         );
 
+        // ----------------------------------------------------------------------------------- extract texture/bind group
+        let extract_texture_view = create_texture(
+            &device,
+            "extract texture",
+            &Size {
+                width: LOGIC_WIDTH,
+                height: LOGIC_HEIGHT,
+            },
+        );
+        let extract_bind_group = create_simple_bind_group(
+            &device,
+            "extract bind group",
+            &simple_bind_group_layout,
+            &cloud_effect_texture_view,
+            &sampler_linear,
+        );
+
         // ----------------------------------------------------------------------------------- smaller texture for blur
         let down1_texture_view = create_texture(
             &device,
             "down1 texture",
             &Size {
-                width: LOGIC_WIDTH / 2,
-                height: LOGIC_HEIGHT / 2,
+                width: DOWN_WIDTH_1,
+                height: DOWN_HEIGHT_1,
             },
         );
         let down1_bind_group = create_simple_bind_group(
             &device,
             "down1 bind group",
             &simple_bind_group_layout,
-            &cloud_effect_texture_view,
+            &extract_texture_view,
             &sampler_linear,
         );
 
@@ -407,8 +441,8 @@ impl Renderer {
             &device,
             "down2 texture",
             &Size {
-                width: LOGIC_WIDTH / 4,
-                height: LOGIC_HEIGHT / 4,
+                width: DOWN_WIDTH_2,
+                height: DOWN_HEIGHT_2,
             },
         );
         let down2_bind_group = create_simple_bind_group(
@@ -423,8 +457,8 @@ impl Renderer {
             &device,
             "down3 texture",
             &Size {
-                width: LOGIC_WIDTH / 8,
-                height: LOGIC_HEIGHT / 8,
+                width: DOWN_WIDTH_3,
+                height: DOWN_HEIGHT_3,
             },
         );
         let down3_bind_group = create_simple_bind_group(
@@ -439,8 +473,8 @@ impl Renderer {
             &device,
             "up1 texture",
             &Size {
-                width: LOGIC_WIDTH / 4,
-                height: LOGIC_HEIGHT / 4,
+                width: DOWN_WIDTH_2,
+                height: DOWN_HEIGHT_2,
             },
         );
         let up1_bind_group = create_blend_bind_group(
@@ -456,8 +490,8 @@ impl Renderer {
             &device,
             "up2 texture",
             &Size {
-                width: LOGIC_WIDTH / 2,
-                height: LOGIC_HEIGHT / 2,
+                width: DOWN_WIDTH_1,
+                height: DOWN_HEIGHT_1,
             },
         );
         let up2_bind_group = create_blend_bind_group(
@@ -482,7 +516,7 @@ impl Renderer {
             "up3 bind group",
             &blend_bind_group_layout,
             &up2_texture_view,
-            &cloud_effect_texture_view,
+            &extract_texture_view,
             &sampler_linear,
         );
         // ----------------------------------------------------------------------------------- scaler bind group
@@ -596,6 +630,15 @@ impl Renderer {
             wgpu::BlendState::ALPHA_BLENDING,
         );
 
+        // ----------------------------------------------------------------------------------- extract pipeline
+        let extract_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for extract",
+            &simple_bind_group_layout,
+            &extract_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
         // ----------------------------------------------------------------------------------- blur pipeline
         let down1_render_pipeline = create_pipeline(
             &device,
@@ -698,6 +741,7 @@ impl Renderer {
             base2_texture_view,
             cloud_effect_texture_view,
             water_effect_texture_view,
+            extract_texture_view,
             down1_texture_view,
             down2_texture_view,
             down3_texture_view,
@@ -709,6 +753,7 @@ impl Renderer {
             diffuse2_bind_group,
             cloud_effect_bind_group,
             water_effect_bind_group,
+            extract_bind_group,
             down1_bind_group,
             down2_bind_group,
             down3_bind_group,
@@ -721,6 +766,7 @@ impl Renderer {
             base2_render_pipeline,
             cloud_effect_render_pipeline,
             water_effect_render_pipeline,
+            extract_render_pipeline,
             down1_render_pipeline,
             down2_render_pipeline,
             down3_render_pipeline,
@@ -909,6 +955,244 @@ impl Renderer {
 
         // ----------------------------------------------------------------------------------- end the renderpass
         drop(water_effect_renderpass);
+
+        // ----------------------------------------------------------------------------------- extract renderpass
+        let mut extract_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("extract renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.extract_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        extract_renderpass.set_pipeline(&self.extract_render_pipeline);
+        extract_renderpass.set_bind_group(0, Some(&self.extract_bind_group), &[]);
+        extract_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        extract_renderpass.set_viewport(
+            0.0,
+            0.0,
+            LOGIC_WIDTH as f32,
+            LOGIC_HEIGHT as f32,
+            0.0,
+            1.0,
+        );
+        extract_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(extract_renderpass);
+
+        // ----------------------------------------------------------------------------------- down1 renderpass
+        let mut down1_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("down1 renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.down1_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        down1_renderpass.set_pipeline(&self.down1_render_pipeline);
+        down1_renderpass.set_bind_group(0, Some(&self.down1_bind_group), &[]);
+        down1_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        down1_renderpass.set_viewport(
+            0.0,
+            0.0,
+            DOWN_WIDTH_1 as f32,
+            DOWN_HEIGHT_1 as f32,
+            0.0,
+            1.0,
+        );
+        down1_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(down1_renderpass);
+
+        // ----------------------------------------------------------------------------------- down2 renderpass
+        let mut down2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("down2 renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.down2_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        down2_renderpass.set_pipeline(&self.down2_render_pipeline);
+        down2_renderpass.set_bind_group(0, Some(&self.down2_bind_group), &[]);
+        down2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        down2_renderpass.set_viewport(
+            0.0,
+            0.0,
+            DOWN_WIDTH_2 as f32,
+            DOWN_HEIGHT_2 as f32,
+            0.0,
+            1.0,
+        );
+        down2_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(down2_renderpass);
+
+        // ----------------------------------------------------------------------------------- down3 renderpass
+        let mut down3_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("down3 renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.down3_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        down3_renderpass.set_pipeline(&self.down3_render_pipeline);
+        down3_renderpass.set_bind_group(0, Some(&self.down3_bind_group), &[]);
+        down3_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        down3_renderpass.set_viewport(
+            0.0,
+            0.0,
+            DOWN_WIDTH_3 as f32,
+            DOWN_HEIGHT_3 as f32,
+            0.0,
+            1.0,
+        );
+        down3_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(down3_renderpass);
+
+        // ----------------------------------------------------------------------------------- up1 renderpass
+        let mut up1_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("up1 renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.up1_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        up1_renderpass.set_pipeline(&self.up1_render_pipeline);
+        up1_renderpass.set_bind_group(0, Some(&self.up1_bind_group), &[]);
+        up1_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        up1_renderpass.set_viewport(
+            0.0,
+            0.0,
+            DOWN_WIDTH_2 as f32,
+            DOWN_HEIGHT_2 as f32,
+            0.0,
+            1.0,
+        );
+        up1_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(up1_renderpass);
+
+        // ----------------------------------------------------------------------------------- up2 renderpass
+        let mut up2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("up2 renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.up2_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        up2_renderpass.set_pipeline(&self.up2_render_pipeline);
+        up2_renderpass.set_bind_group(0, Some(&self.up2_bind_group), &[]);
+        up2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        up2_renderpass.set_viewport(
+            0.0,
+            0.0,
+            DOWN_WIDTH_1 as f32,
+            DOWN_HEIGHT_1 as f32,
+            0.0,
+            1.0,
+        );
+        up2_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(up2_renderpass);
+
+        // ----------------------------------------------------------------------------------- up3 renderpass
+        let mut up3_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("up3 renderpass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &self.up3_texture_view,
+                depth_slice: None,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::TRANSPARENT),
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+
+        // ----------------------------------------------------------------------------------- use the renderpass
+        up3_renderpass.set_pipeline(&self.up3_render_pipeline);
+        up3_renderpass.set_bind_group(0, Some(&self.up3_bind_group), &[]);
+        up3_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
+        up3_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
+        up3_renderpass.draw(0..3, 0..1);
+
+        // ----------------------------------------------------------------------------------- end the renderpass
+        drop(up3_renderpass);
 
         // ----------------------------------------------------------------------------------- surface renderpass
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

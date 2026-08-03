@@ -54,7 +54,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let offset_x1 = sin(frequency_y + speed) * amplitude * 0.5;
     let offset_x2 = sin((frequency_y * 5.0) + (speed * 1.7)) * (amplitude * 0.4);
     let offset_x3 = sin((frequency_y * 11.0) + (speed * 2.1)) * (amplitude * 0.3);
-    let offset_y1 = sin((frequency_x * 0.5) + (speed * 0.3)) * (amplitude * 0.1);
+    let offset_y1 = sin((frequency_x * 0.4) + (speed * 0.3)) * (amplitude * 0.09);
     let offset_y2 = sin((frequency_x * 1.1) + (speed * 1.3)) * (amplitude * 0.08);
     let offset_y3 = sin((frequency_x * 1.8) + (speed * 1.9)) * (amplitude * 0.07);
 

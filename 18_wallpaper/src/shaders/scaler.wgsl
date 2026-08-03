@@ -34,9 +34,9 @@ fn vs_main(
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let base1_colour = textureSample(base1_texture, sampler_nearest, in.uv);
-    let base2_colour = textureSample(base2_texture, sampler_nearest, in.uv);
+    let bloom_colour = textureSample(base2_texture, sampler_linear, in.uv);
 
-    let base_colour = (base1_colour.rgb * (1.0 - base2_colour.a) + base2_colour.rgb * base2_colour.a);
+    let base_colour = (base1_colour + bloom_colour).rgb;
 
     let is_water_zone = in.uv.y >= 0.67;
 
