@@ -16,7 +16,7 @@ struct Size {
     height: u32,
 }
 
-// -------------------------------------------------------------------------------------------- struct for uniform buffer
+// ----------------------------------------------------------------------------------- struct for uniform buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct Uniforms {
@@ -24,7 +24,7 @@ pub struct Uniforms {
     input: f32,
 }
 
-// --------------------------------------------------------------------------------------------- struct for vertex buffer
+// ----------------------------------------------------------------------------------- struct for vertex buffer
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -32,7 +32,7 @@ struct Vertex {
     uv: [f32; 2],
 }
 
-// ------------------------------------------------------------------------------------ descriptor for VertexBufferLayout
+// ----------------------------------------------------------------------------------- descriptor for VertexBufferLayout
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
         wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x2];
@@ -47,7 +47,7 @@ impl Vertex {
     }
 }
 
-// ---------------------------------------------------------------------------------------- data for water_effect vertex buffer
+// ----------------------------------------------------------------------------------- data for water_effect vertex buffer
 const FULLSCREEN_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left
@@ -63,7 +63,7 @@ const FULLSCREEN_VERTICES: &[Vertex] = &[
     },
 ];
 
-// ------------------------------------------------------------------------------------------------------- renderer state
+// ----------------------------------------------------------------------------------- renderer state
 pub struct Renderer {
     instance: wgpu::Instance,
     window: Arc<Window>,
@@ -81,17 +81,35 @@ pub struct Renderer {
     base2_texture_view: wgpu::TextureView,
     cloud_effect_texture_view: wgpu::TextureView,
     water_effect_texture_view: wgpu::TextureView,
+    down1_texture_view: wgpu::TextureView,
+    down2_texture_view: wgpu::TextureView,
+    down3_texture_view: wgpu::TextureView,
+    up1_texture_view: wgpu::TextureView,
+    up2_texture_view: wgpu::TextureView,
+    up3_texture_view: wgpu::TextureView,
 
     diffuse1_bind_group: wgpu::BindGroup,
     diffuse2_bind_group: wgpu::BindGroup,
     cloud_effect_bind_group: wgpu::BindGroup,
     water_effect_bind_group: wgpu::BindGroup,
+    down1_bind_group: wgpu::BindGroup,
+    down2_bind_group: wgpu::BindGroup,
+    down3_bind_group: wgpu::BindGroup,
+    up1_bind_group: wgpu::BindGroup,
+    up2_bind_group: wgpu::BindGroup,
+    up3_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
 
     base1_render_pipeline: wgpu::RenderPipeline,
     base2_render_pipeline: wgpu::RenderPipeline,
     cloud_effect_render_pipeline: wgpu::RenderPipeline,
     water_effect_render_pipeline: wgpu::RenderPipeline,
+    down1_render_pipeline: wgpu::RenderPipeline,
+    down2_render_pipeline: wgpu::RenderPipeline,
+    down3_render_pipeline: wgpu::RenderPipeline,
+    up1_render_pipeline: wgpu::RenderPipeline,
+    up2_render_pipeline: wgpu::RenderPipeline,
+    up3_render_pipeline: wgpu::RenderPipeline,
     scaler_render_pipeline: wgpu::RenderPipeline,
 }
 
@@ -102,22 +120,22 @@ impl Renderer {
             Box::new(display),
         ));
 
-        // ---------------------------------------------------------------------------------------------- physical device
+        // ----------------------------------------------------------------------------------- physical device
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await
             .unwrap();
 
-        // ----------------------------------------------------------------------------------------------- logical device
+        // ----------------------------------------------------------------------------------- logical device
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default())
             .await
             .unwrap();
 
-        // ----------------------------------------------------------------------------------------------- size of window
+        // ----------------------------------------------------------------------------------- size of window
         let size = window.inner_size();
 
-        // ------------------------------------------------------------------------------------------------- load shaders
+        // ----------------------------------------------------------------------------------- load shaders
         let base_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/base.wgsl"))),
@@ -133,12 +151,22 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/water.wgsl"))),
         });
 
+        let down_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("down shader"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/down.wgsl"))),
+        });
+
+        let up_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("up shader"),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/up.wgsl"))),
+        });
+
         let scaler_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/scaler.wgsl"))),
         });
 
-        // ----------------------------------------------------------------------------------------------- uniform buffer
+        // ----------------------------------------------------------------------------------- uniform buffer
         let initial_uniforms = Uniforms {
             time: 0.0,
             input: 0.0,
@@ -150,7 +178,7 @@ impl Renderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        // ------------------------------------------------------------------------------------ full screen vertex buffer
+        // ----------------------------------------------------------------------------------- full screen vertex buffer
         let fullscreen_vertex_buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("full screen vertex buffer"),
@@ -158,12 +186,12 @@ impl Renderer {
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
-        // ----------------------------------------------------------------------------------------- surface to draw onto
+        // ----------------------------------------------------------------------------------- surface to draw onto
         let surface = instance.create_surface(window.clone()).unwrap();
         let cap = surface.get_capabilities(&adapter);
         let surface_format = cap.formats[0];
 
-        // ------------------------------------------------------------------------------------------------------ sampler
+        // ----------------------------------------------------------------------------------- samplers
         let sampler_nearest = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -184,7 +212,7 @@ impl Renderer {
             ..Default::default()
         });
 
-        // ------------------------------------------------------------ bind group layout for simple sampling and drawing
+        // ----------------------------------------------------------------------------------- bind group layouts
         let simple_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("simple bind group layout for sampling and drawing"),
@@ -208,7 +236,6 @@ impl Renderer {
                 ],
             });
 
-        // -------------------------------------------------------------------------------------------- effect bind group
         let effect_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("effect bind group layout"),
@@ -244,7 +271,40 @@ impl Renderer {
                 ],
             });
 
-        // -------------------------------------------------------------------------------------------------------- image
+        let blend_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("blend bind group layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
+        // ----------------------------------------------------------------------------------- load image
         let diffuse1_bytes = include_bytes!("../img/sea_layer.png");
 
         let diffuse1_texture_view =
@@ -258,7 +318,6 @@ impl Renderer {
             &sampler_nearest,
         );
 
-        // -------------------------------------------------------------------------------------------------------- image
         let diffuse2_bytes = include_bytes!("../img/cloud_layer.png");
 
         let diffuse2_texture_view =
@@ -272,7 +331,7 @@ impl Renderer {
             &sampler_nearest,
         );
 
-        // ------------------------------------------------------------------------------------ base texture to draw onto
+        // ----------------------------------------------------------------------------------- base texture
         let base1_texture_view = create_texture(
             &device,
             "base1 texture",
@@ -281,7 +340,6 @@ impl Renderer {
                 height: LOGIC_HEIGHT,
             },
         );
-        // ------------------------------------------------------------------------------------ base texture to draw onto
         let base2_texture_view = create_texture(
             &device,
             "base2 texture",
@@ -291,7 +349,7 @@ impl Renderer {
             },
         );
 
-        // ---------------------------------------------------------------------------- cloud_effect texture to draw onto
+        // ----------------------------------------------------------------------------------- effect texture/bind group
         let cloud_effect_texture_view = create_texture(
             &device,
             "cloud_effect texture",
@@ -301,7 +359,6 @@ impl Renderer {
             },
         );
 
-        // -------------------------------------------------------------------------------------- cloud_effect bind group
         let cloud_effect_bind_group = create_effect_bind_group(
             &device,
             "cloud effect bind group",
@@ -311,7 +368,6 @@ impl Renderer {
             &sampler_linear,
         );
 
-        // ---------------------------------------------------------------------------- water_effect texture to draw onto
         let water_effect_texture_view = create_texture(
             &device,
             "water_effect texture",
@@ -321,7 +377,6 @@ impl Renderer {
             },
         );
 
-        // -------------------------------------------------------------------------------------- water_effect bind group
         let water_effect_bind_group = create_effect_bind_group(
             &device,
             "water effect bind group",
@@ -331,7 +386,106 @@ impl Renderer {
             &sampler_linear,
         );
 
-        // -------------------------------------------------------------------------------------------- scaler bind group
+        // ----------------------------------------------------------------------------------- smaller texture for blur
+        let down1_texture_view = create_texture(
+            &device,
+            "down1 texture",
+            &Size {
+                width: LOGIC_WIDTH / 2,
+                height: LOGIC_HEIGHT / 2,
+            },
+        );
+        let down1_bind_group = create_simple_bind_group(
+            &device,
+            "down1 bind group",
+            &simple_bind_group_layout,
+            &cloud_effect_texture_view,
+            &sampler_linear,
+        );
+
+        let down2_texture_view = create_texture(
+            &device,
+            "down2 texture",
+            &Size {
+                width: LOGIC_WIDTH / 4,
+                height: LOGIC_HEIGHT / 4,
+            },
+        );
+        let down2_bind_group = create_simple_bind_group(
+            &device,
+            "down2 bind group",
+            &simple_bind_group_layout,
+            &down1_texture_view,
+            &sampler_linear,
+        );
+
+        let down3_texture_view = create_texture(
+            &device,
+            "down3 texture",
+            &Size {
+                width: LOGIC_WIDTH / 8,
+                height: LOGIC_HEIGHT / 8,
+            },
+        );
+        let down3_bind_group = create_simple_bind_group(
+            &device,
+            "down3 bind group",
+            &simple_bind_group_layout,
+            &down2_texture_view,
+            &sampler_linear,
+        );
+
+        let up1_texture_view = create_texture(
+            &device,
+            "up1 texture",
+            &Size {
+                width: LOGIC_WIDTH / 4,
+                height: LOGIC_HEIGHT / 4,
+            },
+        );
+        let up1_bind_group = create_blend_bind_group(
+            &device,
+            "up1 bind group",
+            &blend_bind_group_layout,
+            &down2_texture_view,
+            &down3_texture_view,
+            &sampler_linear,
+        );
+
+        let up2_texture_view = create_texture(
+            &device,
+            "up2 texture",
+            &Size {
+                width: LOGIC_WIDTH / 2,
+                height: LOGIC_HEIGHT / 2,
+            },
+        );
+        let up2_bind_group = create_blend_bind_group(
+            &device,
+            "up2 bind group",
+            &blend_bind_group_layout,
+            &up1_texture_view,
+            &down1_texture_view,
+            &sampler_linear,
+        );
+
+        let up3_texture_view = create_texture(
+            &device,
+            "up3 texture",
+            &Size {
+                width: LOGIC_WIDTH,
+                height: LOGIC_HEIGHT,
+            },
+        );
+        let up3_bind_group = create_blend_bind_group(
+            &device,
+            "up3 bind group",
+            &blend_bind_group_layout,
+            &up2_texture_view,
+            &cloud_effect_texture_view,
+            &sampler_linear,
+        );
+        // ----------------------------------------------------------------------------------- scaler bind group
         let scaler_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("bind group layout"),
@@ -391,7 +545,7 @@ impl Renderer {
                 },
                 wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&cloud_effect_texture_view),
+                    resource: wgpu::BindingResource::TextureView(&up3_texture_view),
                 },
                 wgpu::BindGroupEntry {
                     binding: 2,
@@ -408,7 +562,7 @@ impl Renderer {
             ],
         });
 
-        // ------------------------------------------------------------------------------------------------ base pipeline
+        // ----------------------------------------------------------------------------------- base pipeline
         let base1_render_pipeline = create_pipeline(
             &device,
             "render pipeline for base1",
@@ -425,7 +579,7 @@ impl Renderer {
             wgpu::BlendState::REPLACE,
         );
 
-        // ----------------------------------------------------------------- pipeline to sample base and add cloud_effect
+        // ----------------------------------------------------------------------------------- effect pipeline
         let cloud_effect_render_pipeline = create_pipeline(
             &device,
             "render pipeline for cloud_effect",
@@ -434,7 +588,6 @@ impl Renderer {
             wgpu::BlendState::ALPHA_BLENDING,
         );
 
-        // ----------------------------------------------------------------- pipeline to sample base and add water_effect
         let water_effect_render_pipeline = create_pipeline(
             &device,
             "render pipeline for water_effect",
@@ -443,7 +596,56 @@ impl Renderer {
             wgpu::BlendState::ALPHA_BLENDING,
         );
 
-        // ------------------------------------------------------------------------------------------ pipeline for scaler
+        // ----------------------------------------------------------------------------------- blur pipeline
+        let down1_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for down1",
+            &simple_bind_group_layout,
+            &down_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
+        let down2_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for down2",
+            &simple_bind_group_layout,
+            &down_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
+        let down3_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for down3",
+            &simple_bind_group_layout,
+            &down_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
+        let up1_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for up1",
+            &blend_bind_group_layout,
+            &up_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
+        let up2_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for up2",
+            &blend_bind_group_layout,
+            &up_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
+        let up3_render_pipeline = create_pipeline(
+            &device,
+            "render pipeline for up3",
+            &blend_bind_group_layout,
+            &up_shader,
+            wgpu::BlendState::ALPHA_BLENDING,
+        );
+
+        // ----------------------------------------------------------------------------------- pipeline for scaler
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render pipeline layout for surface"),
@@ -477,7 +679,7 @@ impl Renderer {
                 cache: None,
             });
 
-        // --------------------------------------------------------------------------------------------------------------
+        // ----------------------------------------------------------------------------------- renderer
 
         let renderer = Renderer {
             instance,
@@ -496,21 +698,39 @@ impl Renderer {
             base2_texture_view,
             cloud_effect_texture_view,
             water_effect_texture_view,
+            down1_texture_view,
+            down2_texture_view,
+            down3_texture_view,
+            up1_texture_view,
+            up2_texture_view,
+            up3_texture_view,
 
             diffuse1_bind_group,
             diffuse2_bind_group,
             cloud_effect_bind_group,
             water_effect_bind_group,
+            down1_bind_group,
+            down2_bind_group,
+            down3_bind_group,
+            up1_bind_group,
+            up2_bind_group,
+            up3_bind_group,
             scaler_bind_group,
 
             base1_render_pipeline,
             base2_render_pipeline,
             cloud_effect_render_pipeline,
             water_effect_render_pipeline,
+            down1_render_pipeline,
+            down2_render_pipeline,
+            down3_render_pipeline,
+            up1_render_pipeline,
+            up2_render_pipeline,
+            up3_render_pipeline,
             scaler_render_pipeline,
         };
 
-        // ------------------------------------------------------------------------- configure surface for the first time
+        // ----------------------------------------------------------------------------------- configure surface
         renderer.configure_surface();
 
         renderer
@@ -520,7 +740,6 @@ impl Renderer {
         let surface_config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: self.surface_format,
-            // Request compatibility with the sRGB-format texture view we‘re going to create later.
             view_formats: vec![self.surface_format.add_srgb_suffix()],
             alpha_mode: wgpu::CompositeAlphaMode::Auto,
             width: self.size.width,
@@ -532,7 +751,7 @@ impl Renderer {
     }
 
     pub fn render(&mut self) {
-        // ---------------------------------------------------------------------------------- create surface texture view
+        // ----------------------------------------------------------------------------------- surface texture view
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
             wgpu::CurrentSurfaceTexture::Occluded | wgpu::CurrentSurfaceTexture::Timeout => return,
@@ -559,15 +778,13 @@ impl Renderer {
             surface_texture
                 .texture
                 .create_view(&wgpu::TextureViewDescriptor {
-                    // Without add_srgb_suffix() the image we will be working with
-                    // might not be "gamma correct".
                     format: Some(self.surface_format.add_srgb_suffix()),
                     ..Default::default()
                 });
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
-        // ------------------------------------------------------------------------------------------ renderpass for base1
+        // ----------------------------------------------------------------------------------- base1 renderpass
         let mut base1_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("base1 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -585,17 +802,17 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ------------------------------------------------------------------------------------------- use the renderpass
+        // ----------------------------------------------------------------------------------- use the renderpass
         base1_renderpass.set_pipeline(&self.base1_render_pipeline);
         base1_renderpass.set_bind_group(0, Some(&self.diffuse1_bind_group), &[]);
         base1_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         base1_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         base1_renderpass.draw(0..3, 0..1);
 
-        // ------------------------------------------------------------------------------------------- end the renderpass
+        // ----------------------------------------------------------------------------------- end the renderpass
         drop(base1_renderpass);
 
-        // ------------------------------------------------------------------------------------------ renderpass for base2
+        // ----------------------------------------------------------------------------------- base2 renderpass
         let mut base2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("base2 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -613,17 +830,17 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ------------------------------------------------------------------------------------------- use the renderpass
+        // ----------------------------------------------------------------------------------- use the renderpass
         base2_renderpass.set_pipeline(&self.base2_render_pipeline);
         base2_renderpass.set_bind_group(0, Some(&self.diffuse2_bind_group), &[]);
         base2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         base2_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         base2_renderpass.draw(0..3, 0..1);
 
-        // ------------------------------------------------------------------------------------------- end the renderpass
+        // ----------------------------------------------------------------------------------- end the renderpass
         drop(base2_renderpass);
 
-        // ---------------------------------------------------------------------------------- renderpass for cloud_effect
+        // ----------------------------------------------------------------------------------- cloud_effect renderpass
         let mut cloud_effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("cloud_effect renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -641,7 +858,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ------------------------------------------------------------------------------------------- use the renderpass
+        // ----------------------------------------------------------------------------------- use the renderpass
         cloud_effect_renderpass.set_pipeline(&self.cloud_effect_render_pipeline);
         cloud_effect_renderpass.set_bind_group(0, Some(&self.cloud_effect_bind_group), &[]);
         cloud_effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -655,10 +872,10 @@ impl Renderer {
         );
         cloud_effect_renderpass.draw(0..3, 0..1);
 
-        // ------------------------------------------------------------------------------------------- end the renderpass
+        // ----------------------------------------------------------------------------------- end the renderpass
         drop(cloud_effect_renderpass);
 
-        // ---------------------------------------------------------------------------------- renderpass for water_effect
+        // ----------------------------------------------------------------------------------- water_effect renderpass
         let mut water_effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("water_effect renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -676,7 +893,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ------------------------------------------------------------------------------------------- use the renderpass
+        // ----------------------------------------------------------------------------------- use the renderpass
         water_effect_renderpass.set_pipeline(&self.water_effect_render_pipeline);
         water_effect_renderpass.set_bind_group(0, Some(&self.water_effect_bind_group), &[]);
         water_effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -690,10 +907,10 @@ impl Renderer {
         );
         water_effect_renderpass.draw(0..3, 0..1);
 
-        // ------------------------------------------------------------------------------------------- end the renderpass
+        // ----------------------------------------------------------------------------------- end the renderpass
         drop(water_effect_renderpass);
 
-        // --------------------------------------------------------------------------------------- renderpass for surface
+        // ----------------------------------------------------------------------------------- surface renderpass
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -713,7 +930,7 @@ impl Renderer {
 
         let viewport_xywh = self.calc_ratio();
 
-        // ------------------------------------------------------------------------------------------- use the renderpass
+        // ----------------------------------------------------------------------------------- use the renderpass
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -727,15 +944,16 @@ impl Renderer {
         );
         scaler_renderpass.draw(0..3, 0..1);
 
-        // ------------------------------------------------------------------------------------------- end the renderpass
+        // ----------------------------------------------------------------------------------- end the renderpass
         drop(scaler_renderpass);
 
-        // ------------------------------------------------------------------- submit the command in the queue to execute
+        // ----------------------------------------------------------------------------------- submit the command
         self.queue.submit([encoder.finish()]);
         self.window.pre_present_notify();
         surface_texture.present();
     }
 
+    // ----------------------------------------------------------------------------------- viewport data for scaler
     fn calc_ratio(&self) -> [f32; 4] {
         let w = LOGIC_WIDTH as f32;
         let h = LOGIC_HEIGHT as f32;
@@ -761,15 +979,18 @@ impl Renderer {
         [x, y, w, h]
     }
 
+    // ----------------------------------------------------------------------------------- window data for App
     pub fn get_window(&self) -> &Window {
         &self.window
     }
 
+    // ----------------------------------------------------------------------------------- resize surface
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.configure_surface();
     }
 
+    // ----------------------------------------------------------------------------------- update uniform buffer
     pub fn update(&self, time: f32, input: f32) {
         self.queue.write_buffer(
             &self.uniform_buffer,
@@ -779,19 +1000,20 @@ impl Renderer {
     }
 }
 
+// ----------------------------------------------------------------------------------- create texture to handle image
 fn create_diffuse_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
     label: &str,
     diffuse_bytes: &[u8],
 ) -> wgpu::TextureView {
-    // -------------------------------------------------------------------------------------------------------- image
+    // ----------------------------------------------------------------------------------- image data
     let image = image::load_from_memory(diffuse_bytes).unwrap();
 
     let diffuse_rgba = image.to_rgba8();
     let dimentions = image.dimensions();
 
-    // ---------------------------------------------------------------------------------------------- diffuse texture
+    // ----------------------------------------------------------------------------------- create texture
     let diffuse_texture_size = wgpu::Extent3d {
         width: dimentions.0,
         height: dimentions.1,
@@ -809,6 +1031,7 @@ fn create_diffuse_texture(
         view_formats: &[],
     });
 
+    // ----------------------------------------------------------------------------------- write texture
     queue.write_texture(
         wgpu::TexelCopyTextureInfo {
             texture: &diffuse_texture,
@@ -825,11 +1048,11 @@ fn create_diffuse_texture(
         diffuse_texture_size,
     );
 
-    // ----------------------------------------------------------------------------------------------------- texture view
+    // ----------------------------------------------------------------------------------- texture view
     diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-// --------------------------------------------------------------------------------------- creates a texture to draw onto
+// ----------------------------------------------------------------------------------- create texture to draw onto
 fn create_texture(device: &wgpu::Device, label: &str, size: &Size) -> wgpu::TextureView {
     let new_texture_size = wgpu::Extent3d {
         width: size.width,
@@ -850,11 +1073,11 @@ fn create_texture(device: &wgpu::Device, label: &str, size: &Size) -> wgpu::Text
         view_formats: &[],
     });
 
-    // ------------------------------------------------------------------------------------------------- new texture view
+    // ----------------------------------------------------------------------------------- texture view
     new_texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
-// ---------------------------------------------------------------------------- creates simple sample and draw bind group
+// ----------------------------------------------------------------------------------- create bind group to sample/draw
 fn create_simple_bind_group(
     device: &wgpu::Device,
     label: &str,
@@ -879,6 +1102,7 @@ fn create_simple_bind_group(
     new_bind_group
 }
 
+// ----------------------------------------------------------------------------------- create bind group with uniform
 fn create_effect_bind_group(
     device: &wgpu::Device,
     label: &str,
@@ -911,7 +1135,37 @@ fn create_effect_bind_group(
     });
     effect_bind_group
 }
+// ----------------------------------------------------------------------------------- create bind group to blend
+fn create_blend_bind_group(
+    device: &wgpu::Device,
+    label: &str,
+    bind_group_layout: &wgpu::BindGroupLayout,
+    resource_1: &wgpu::TextureView,
+    resource_2: &wgpu::TextureView,
+    sampler: &wgpu::Sampler,
+) -> wgpu::BindGroup {
+    let new_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        label: Some(label),
+        layout: &bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::Sampler(&sampler),
+            },
+            wgpu::BindGroupEntry {
+                binding: 1,
+                resource: wgpu::BindingResource::TextureView(&resource_1),
+            },
+            wgpu::BindGroupEntry {
+                binding: 2,
+                resource: wgpu::BindingResource::TextureView(&resource_2),
+            },
+        ],
+    });
+    new_bind_group
+}
 
+// ----------------------------------------------------------------------------------- create render pipeline
 fn create_pipeline(
     device: &wgpu::Device,
     label: &str,
