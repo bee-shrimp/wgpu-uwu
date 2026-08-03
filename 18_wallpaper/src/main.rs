@@ -23,14 +23,14 @@ struct App {
 
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        // ----------------------------------------------------------------------------------------- create window object
+        // --------------------------------------------------------------------------- create window object
         let window = Arc::new(
             event_loop
                 .create_window(Window::default_attributes())
                 .unwrap(),
         );
 
-        // ---------------------------------------------------------------------------------------------- create renderer
+        // --------------------------------------------------------------------------- create renderer
         let renderer = pollster::block_on(Renderer::new(
             event_loop.owned_display_handle(),
             window.clone(),
@@ -39,31 +39,31 @@ impl ApplicationHandler for App {
         self.time = 0.0;
         self.input = 0.0;
 
-        // ------------------------------------------------------------------------------------------------------- redraw
+        // --------------------------------------------------------------------------- redraw
         window.request_redraw();
     }
 
-    // --------------------------------------------------------------------------------------------- handle window events
+    // ------------------------------------------------------------------------------- handle window events
     fn window_event(&mut self, event_loop: &ActiveEventLoop, _id: WindowId, event: WindowEvent) {
         let renderer = self.renderer.as_mut().unwrap();
 
         match event {
-            // --------------------------------------------------------------------------------------------- close window
+            // ----------------------------------------------------------------------- close window
             WindowEvent::CloseRequested => {
                 println!("close requested; stopping");
                 event_loop.exit();
             }
-            // --------------------------------------------------------------------------------------------------- redraw
+            // ----------------------------------------------------------------------- redraw
             WindowEvent::RedrawRequested => {
                 renderer.render();
             }
 
-            // --------------------------------------------------------------------------------------------------- resize
+            // ----------------------------------------------------------------------- resize
             WindowEvent::Resized(size) => {
                 // this event is always followed up by redraw request.
                 renderer.resize(size);
             }
-            // ----------------------------------------------------------------------------------------- handle key input
+            // ----------------------------------------------------------------------- handle key inputs
             WindowEvent::KeyboardInput { event, .. } => {
                 if let PhysicalKey::Code(code) = event.physical_key
                     && event.state.is_pressed()
@@ -84,6 +84,7 @@ impl ApplicationHandler for App {
         }
     }
 
+    // ------------------------------------------------------------------------------- things to do after everyting else
     #[allow(unused_variables)]
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         let renderer = self.renderer.as_mut().unwrap();

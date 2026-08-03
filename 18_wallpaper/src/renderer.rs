@@ -1,4 +1,3 @@
-use image::GenericImageView;
 use std::borrow::Cow;
 use std::mem;
 use wgpu::util::DeviceExt;
@@ -6,9 +5,13 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
+use image::GenericImageView;
+
+// ----------------------------------------------------------------------------------- logical size of pixel art
 const LOGIC_WIDTH: u32 = 1920 / 3;
 const LOGIC_HEIGHT: u32 = 1080 / 3;
 
+// ----------------------------------------------------------------------------------- size of smaller textures
 const DOWN_WIDTH_1: u32 = LOGIC_WIDTH / 2;
 const DOWN_HEIGHT_1: u32 = LOGIC_HEIGHT / 2;
 
@@ -18,8 +21,10 @@ const DOWN_HEIGHT_2: u32 = LOGIC_HEIGHT / 4;
 const DOWN_WIDTH_3: u32 = LOGIC_WIDTH / 8;
 const DOWN_HEIGHT_3: u32 = LOGIC_HEIGHT / 8;
 
+// ----------------------------------------------------------------------------------- bottom 1 / water_zone is water
 const WATER_ZONE: u32 = 3;
 
+// ----------------------------------------------------------------------------------- texture size for create_texture()
 struct Size {
     width: u32,
     height: u32,
@@ -82,10 +87,11 @@ pub struct Renderer {
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
 
+    // ------------------------------------------------------------------------------- buffers
     uniform_buffer: wgpu::Buffer,
-
     fullscreen_vertex_buffer: wgpu::Buffer,
 
+    // ------------------------------------------------------------------------------- textures
     base1_texture_view: wgpu::TextureView,
     base2_texture_view: wgpu::TextureView,
     cloud_effect_texture_view: wgpu::TextureView,
@@ -98,6 +104,7 @@ pub struct Renderer {
     up2_texture_view: wgpu::TextureView,
     up3_texture_view: wgpu::TextureView,
 
+    // ------------------------------------------------------------------------------- bind groups
     diffuse1_bind_group: wgpu::BindGroup,
     diffuse2_bind_group: wgpu::BindGroup,
     cloud_effect_bind_group: wgpu::BindGroup,
@@ -111,6 +118,7 @@ pub struct Renderer {
     up3_bind_group: wgpu::BindGroup,
     scaler_bind_group: wgpu::BindGroup,
 
+    // ------------------------------------------------------------------------------- pipelines
     base1_render_pipeline: wgpu::RenderPipeline,
     base2_render_pipeline: wgpu::RenderPipeline,
     cloud_effect_render_pipeline: wgpu::RenderPipeline,
@@ -125,29 +133,30 @@ pub struct Renderer {
     scaler_render_pipeline: wgpu::RenderPipeline,
 }
 
+// ----------------------------------------------------------------------------------- renderer state
 impl Renderer {
     pub async fn new(display: OwnedDisplayHandle, window: Arc<Window>) -> Renderer {
-        // ----------------------------------------------------------------------------------- create a new wgpu instance
+        // --------------------------------------------------------------------------- create a new wgpu instance
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_with_display_handle(
             Box::new(display),
         ));
 
-        // ----------------------------------------------------------------------------------- physical device
+        // --------------------------------------------------------------------------- physical device
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions::default())
             .await
             .unwrap();
 
-        // ----------------------------------------------------------------------------------- logical device
+        // --------------------------------------------------------------------------- logical device
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor::default())
             .await
             .unwrap();
 
-        // ----------------------------------------------------------------------------------- size of window
+        // --------------------------------------------------------------------------- size of window
         let size = window.inner_size();
 
-        // ----------------------------------------------------------------------------------- load shaders
+        // --------------------------------------------------------------------------- load shaders
         let base_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: None,
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/base.wgsl"))),
@@ -183,7 +192,7 @@ impl Renderer {
             source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/scaler.wgsl"))),
         });
 
-        // ----------------------------------------------------------------------------------- uniform buffer
+        // --------------------------------------------------------------------------- uniform buffer
         let initial_uniforms = Uniforms {
             time: 0.0,
             input: 0.0,
@@ -195,7 +204,7 @@ impl Renderer {
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
-        // ----------------------------------------------------------------------------------- full screen vertex buffer
+        // --------------------------------------------------------------------------- full screen vertex buffer
         let fullscreen_vertex_buffer =
             device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("full screen vertex buffer"),
@@ -203,12 +212,12 @@ impl Renderer {
                 usage: wgpu::BufferUsages::VERTEX,
             });
 
-        // ----------------------------------------------------------------------------------- surface to draw onto
+        // --------------------------------------------------------------------------- surface to draw onto
         let surface = instance.create_surface(window.clone()).unwrap();
         let cap = surface.get_capabilities(&adapter);
         let surface_format = cap.formats[0];
 
-        // ----------------------------------------------------------------------------------- samplers
+        // --------------------------------------------------------------------------- samplers
         let sampler_nearest = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -229,7 +238,7 @@ impl Renderer {
             ..Default::default()
         });
 
-        // ----------------------------------------------------------------------------------- bind group layouts
+        // --------------------------------------------------------------------------- bind group layouts
         let simple_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("simple bind group layout for sampling and drawing"),
@@ -321,7 +330,7 @@ impl Renderer {
                 ],
             });
 
-        // ----------------------------------------------------------------------------------- load image
+        // --------------------------------------------------------------------------- load image
         let diffuse1_bytes = include_bytes!("../img/sea_layer.png");
 
         let diffuse1_texture_view =
@@ -348,7 +357,7 @@ impl Renderer {
             &sampler_linear,
         );
 
-        // ----------------------------------------------------------------------------------- base texture
+        // --------------------------------------------------------------------------- base texture
         let base1_texture_view = create_texture(
             &device,
             "base1 texture",
@@ -366,7 +375,7 @@ impl Renderer {
             },
         );
 
-        // ----------------------------------------------------------------------------------- effect texture/bind group
+        // --------------------------------------------------------------------------- effect texture/bind group
         let cloud_effect_texture_view = create_texture(
             &device,
             "cloud_effect texture",
@@ -403,7 +412,7 @@ impl Renderer {
             &sampler_linear,
         );
 
-        // ----------------------------------------------------------------------------------- extract texture/bind group
+        // --------------------------------------------------------------------------- extract texture/bind group
         let extract_texture_view = create_texture(
             &device,
             "extract texture",
@@ -420,7 +429,7 @@ impl Renderer {
             &sampler_linear,
         );
 
-        // ----------------------------------------------------------------------------------- smaller texture for blur
+        // --------------------------------------------------------------------------- smaller texture for blur
         let down1_texture_view = create_texture(
             &device,
             "down1 texture",
@@ -519,7 +528,7 @@ impl Renderer {
             &extract_texture_view,
             &sampler_linear,
         );
-        // ----------------------------------------------------------------------------------- scaler bind group
+        // --------------------------------------------------------------------------- scaler bind group
         let scaler_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("bind group layout"),
@@ -596,7 +605,7 @@ impl Renderer {
             ],
         });
 
-        // ----------------------------------------------------------------------------------- base pipeline
+        // --------------------------------------------------------------------------- base pipeline
         let base1_render_pipeline = create_pipeline(
             &device,
             "render pipeline for base1",
@@ -613,7 +622,7 @@ impl Renderer {
             wgpu::BlendState::REPLACE,
         );
 
-        // ----------------------------------------------------------------------------------- effect pipeline
+        // --------------------------------------------------------------------------- effect pipeline
         let cloud_effect_render_pipeline = create_pipeline(
             &device,
             "render pipeline for cloud_effect",
@@ -630,7 +639,7 @@ impl Renderer {
             wgpu::BlendState::ALPHA_BLENDING,
         );
 
-        // ----------------------------------------------------------------------------------- extract pipeline
+        // --------------------------------------------------------------------------- extract pipeline
         let extract_render_pipeline = create_pipeline(
             &device,
             "render pipeline for extract",
@@ -639,7 +648,7 @@ impl Renderer {
             wgpu::BlendState::ALPHA_BLENDING,
         );
 
-        // ----------------------------------------------------------------------------------- blur pipeline
+        // --------------------------------------------------------------------------- blur pipeline
         let down1_render_pipeline = create_pipeline(
             &device,
             "render pipeline for down1",
@@ -688,7 +697,7 @@ impl Renderer {
             wgpu::BlendState::ALPHA_BLENDING,
         );
 
-        // ----------------------------------------------------------------------------------- pipeline for scaler
+        // --------------------------------------------------------------------------- pipeline for scaler
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render pipeline layout for surface"),
@@ -722,7 +731,7 @@ impl Renderer {
                 cache: None,
             });
 
-        // ----------------------------------------------------------------------------------- renderer
+        // --------------------------------------------------------------------------- renderer
 
         let renderer = Renderer {
             instance,
@@ -776,7 +785,7 @@ impl Renderer {
             scaler_render_pipeline,
         };
 
-        // ----------------------------------------------------------------------------------- configure surface
+        // --------------------------------------------------------------------------- configure surface
         renderer.configure_surface();
 
         renderer
@@ -797,7 +806,7 @@ impl Renderer {
     }
 
     pub fn render(&mut self) {
-        // ----------------------------------------------------------------------------------- surface texture view
+        // --------------------------------------------------------------------------- surface texture view
         let surface_texture = match self.surface.get_current_texture() {
             wgpu::CurrentSurfaceTexture::Success(texture) => texture,
             wgpu::CurrentSurfaceTexture::Occluded | wgpu::CurrentSurfaceTexture::Timeout => return,
@@ -830,7 +839,7 @@ impl Renderer {
 
         let mut encoder = self.device.create_command_encoder(&Default::default());
 
-        // ----------------------------------------------------------------------------------- base1 renderpass
+        // --------------------------------------------------------------------------- base1 renderpass
         let mut base1_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("base1 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -848,17 +857,17 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         base1_renderpass.set_pipeline(&self.base1_render_pipeline);
         base1_renderpass.set_bind_group(0, Some(&self.diffuse1_bind_group), &[]);
         base1_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         base1_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         base1_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(base1_renderpass);
 
-        // ----------------------------------------------------------------------------------- base2 renderpass
+        // --------------------------------------------------------------------------- base2 renderpass
         let mut base2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("base2 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -876,17 +885,17 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         base2_renderpass.set_pipeline(&self.base2_render_pipeline);
         base2_renderpass.set_bind_group(0, Some(&self.diffuse2_bind_group), &[]);
         base2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         base2_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         base2_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(base2_renderpass);
 
-        // ----------------------------------------------------------------------------------- cloud_effect renderpass
+        // --------------------------------------------------------------------------- cloud_effect renderpass
         let mut cloud_effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("cloud_effect renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -904,7 +913,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         cloud_effect_renderpass.set_pipeline(&self.cloud_effect_render_pipeline);
         cloud_effect_renderpass.set_bind_group(0, Some(&self.cloud_effect_bind_group), &[]);
         cloud_effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -918,10 +927,10 @@ impl Renderer {
         );
         cloud_effect_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(cloud_effect_renderpass);
 
-        // ----------------------------------------------------------------------------------- water_effect renderpass
+        // --------------------------------------------------------------------------- water_effect renderpass
         let mut water_effect_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("water_effect renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -939,7 +948,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         water_effect_renderpass.set_pipeline(&self.water_effect_render_pipeline);
         water_effect_renderpass.set_bind_group(0, Some(&self.water_effect_bind_group), &[]);
         water_effect_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -947,16 +956,16 @@ impl Renderer {
             0.0,
             0.0,
             LOGIC_WIDTH as f32,
-            (LOGIC_HEIGHT / 3) as f32,
+            (LOGIC_HEIGHT / WATER_ZONE) as f32,
             0.0,
             1.0,
         );
         water_effect_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(water_effect_renderpass);
 
-        // ----------------------------------------------------------------------------------- extract renderpass
+        // --------------------------------------------------------------------------- extract renderpass
         let mut extract_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("extract renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -974,7 +983,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         extract_renderpass.set_pipeline(&self.extract_render_pipeline);
         extract_renderpass.set_bind_group(0, Some(&self.extract_bind_group), &[]);
         extract_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -988,10 +997,10 @@ impl Renderer {
         );
         extract_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(extract_renderpass);
 
-        // ----------------------------------------------------------------------------------- down1 renderpass
+        // --------------------------------------------------------------------------- down1 renderpass
         let mut down1_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("down1 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1009,7 +1018,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         down1_renderpass.set_pipeline(&self.down1_render_pipeline);
         down1_renderpass.set_bind_group(0, Some(&self.down1_bind_group), &[]);
         down1_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -1023,10 +1032,10 @@ impl Renderer {
         );
         down1_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(down1_renderpass);
 
-        // ----------------------------------------------------------------------------------- down2 renderpass
+        // --------------------------------------------------------------------------- down2 renderpass
         let mut down2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("down2 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1044,7 +1053,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         down2_renderpass.set_pipeline(&self.down2_render_pipeline);
         down2_renderpass.set_bind_group(0, Some(&self.down2_bind_group), &[]);
         down2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -1058,10 +1067,10 @@ impl Renderer {
         );
         down2_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(down2_renderpass);
 
-        // ----------------------------------------------------------------------------------- down3 renderpass
+        // --------------------------------------------------------------------------- down3 renderpass
         let mut down3_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("down3 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1079,7 +1088,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         down3_renderpass.set_pipeline(&self.down3_render_pipeline);
         down3_renderpass.set_bind_group(0, Some(&self.down3_bind_group), &[]);
         down3_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -1093,10 +1102,10 @@ impl Renderer {
         );
         down3_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(down3_renderpass);
 
-        // ----------------------------------------------------------------------------------- up1 renderpass
+        // --------------------------------------------------------------------------- up1 renderpass
         let mut up1_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("up1 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1114,7 +1123,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         up1_renderpass.set_pipeline(&self.up1_render_pipeline);
         up1_renderpass.set_bind_group(0, Some(&self.up1_bind_group), &[]);
         up1_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -1128,10 +1137,10 @@ impl Renderer {
         );
         up1_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(up1_renderpass);
 
-        // ----------------------------------------------------------------------------------- up2 renderpass
+        // --------------------------------------------------------------------------- up2 renderpass
         let mut up2_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("up2 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1149,7 +1158,7 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         up2_renderpass.set_pipeline(&self.up2_render_pipeline);
         up2_renderpass.set_bind_group(0, Some(&self.up2_bind_group), &[]);
         up2_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -1163,10 +1172,10 @@ impl Renderer {
         );
         up2_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(up2_renderpass);
 
-        // ----------------------------------------------------------------------------------- up3 renderpass
+        // --------------------------------------------------------------------------- up3 renderpass
         let mut up3_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("up3 renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1184,17 +1193,17 @@ impl Renderer {
             multiview_mask: None,
         });
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         up3_renderpass.set_pipeline(&self.up3_render_pipeline);
         up3_renderpass.set_bind_group(0, Some(&self.up3_bind_group), &[]);
         up3_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
         up3_renderpass.set_viewport(0.0, 0.0, LOGIC_WIDTH as f32, LOGIC_HEIGHT as f32, 0.0, 1.0);
         up3_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(up3_renderpass);
 
-        // ----------------------------------------------------------------------------------- surface renderpass
+        // --------------------------------------------------------------------------- surface renderpass
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -1214,7 +1223,7 @@ impl Renderer {
 
         let viewport_xywh = self.calc_ratio();
 
-        // ----------------------------------------------------------------------------------- use the renderpass
+        // --------------------------------------------------------------------------- use the renderpass
         scaler_renderpass.set_pipeline(&self.scaler_render_pipeline);
         scaler_renderpass.set_bind_group(0, Some(&self.scaler_bind_group), &[]);
         scaler_renderpass.set_vertex_buffer(0, self.fullscreen_vertex_buffer.slice(..));
@@ -1228,16 +1237,16 @@ impl Renderer {
         );
         scaler_renderpass.draw(0..3, 0..1);
 
-        // ----------------------------------------------------------------------------------- end the renderpass
+        // --------------------------------------------------------------------------- end the renderpass
         drop(scaler_renderpass);
 
-        // ----------------------------------------------------------------------------------- submit the command
+        // --------------------------------------------------------------------------- submit the command
         self.queue.submit([encoder.finish()]);
         self.window.pre_present_notify();
         surface_texture.present();
     }
 
-    // ----------------------------------------------------------------------------------- viewport data for scaler
+    // ------------------------------------------------------------------------------- viewport data for scaler
     fn calc_ratio(&self) -> [f32; 4] {
         let w = LOGIC_WIDTH as f32;
         let h = LOGIC_HEIGHT as f32;
@@ -1263,18 +1272,18 @@ impl Renderer {
         [x, y, w, h]
     }
 
-    // ----------------------------------------------------------------------------------- window data for App
+    // ------------------------------------------------------------------------------- window data for App
     pub fn get_window(&self) -> &Window {
         &self.window
     }
 
-    // ----------------------------------------------------------------------------------- resize surface
+    // ------------------------------------------------------------------------------- resize surface
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.configure_surface();
     }
 
-    // ----------------------------------------------------------------------------------- update uniform buffer
+    // ------------------------------------------------------------------------------- update uniform buffer
     pub fn update(&self, time: f32, input: f32) {
         self.queue.write_buffer(
             &self.uniform_buffer,
@@ -1291,13 +1300,13 @@ fn create_diffuse_texture(
     label: &str,
     diffuse_bytes: &[u8],
 ) -> wgpu::TextureView {
-    // ----------------------------------------------------------------------------------- image data
+    // ------------------------------------------------------------------------------- image data
     let image = image::load_from_memory(diffuse_bytes).unwrap();
 
     let diffuse_rgba = image.to_rgba8();
     let dimentions = image.dimensions();
 
-    // ----------------------------------------------------------------------------------- create texture
+    // ------------------------------------------------------------------------------- create texture
     let diffuse_texture_size = wgpu::Extent3d {
         width: dimentions.0,
         height: dimentions.1,
@@ -1315,7 +1324,7 @@ fn create_diffuse_texture(
         view_formats: &[],
     });
 
-    // ----------------------------------------------------------------------------------- write texture
+    // ------------------------------------------------------------------------------- write texture
     queue.write_texture(
         wgpu::TexelCopyTextureInfo {
             texture: &diffuse_texture,
@@ -1332,7 +1341,7 @@ fn create_diffuse_texture(
         diffuse_texture_size,
     );
 
-    // ----------------------------------------------------------------------------------- texture view
+    // ------------------------------------------------------------------------------- texture view
     diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
@@ -1357,7 +1366,7 @@ fn create_texture(device: &wgpu::Device, label: &str, size: &Size) -> wgpu::Text
         view_formats: &[],
     });
 
-    // ----------------------------------------------------------------------------------- texture view
+    // ------------------------------------------------------------------------------- texture view
     new_texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
