@@ -292,7 +292,7 @@ impl Renderer {
         let fg_rgba = fg_image.to_rgba8();
         let dimentions = fg_image.dimensions();
 
-        // ---------------------------------------------------------------------------------------------- fg texture
+        // --------------------------------------------------------------------------------------------------- fg texture
         let fg_texture_size = wgpu::Extent3d {
             width: dimentions.0,
             height: dimentions.1,
@@ -326,10 +326,10 @@ impl Renderer {
             fg_texture_size,
         );
 
-        // ------------------------------------------------------------------------------------------------- texture view
+        // ---------------------------------------------------------------------------------------------- fg texture view
         let fg_texture_view = fg_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // ------------------------------------------------------------------------------------------- texture bind group
+        // ---------------------------------------------------------------------------------------- fg texture bind group
         let fg_texture_bind_group_lauout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("fg texture bind group layout"),
@@ -857,7 +857,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(effect_renderpass);
 
-        // --------------------------------------------------------------------------------------- renderpass for surface
+        // ---------------------------------------------------------------------------------------- renderpass for scaler
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {

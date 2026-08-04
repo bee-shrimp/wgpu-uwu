@@ -207,11 +207,11 @@ impl Renderer {
             diffuse_texture_size,
         );
 
-        // ------------------------------------------------------------------------------------------------- texture view
+        // ----------------------------------------------------------------------------------------- diffuse texture view
         let diffuse_texture_view =
             diffuse_texture.create_view(&wgpu::TextureViewDescriptor::default());
 
-        // ------------------------------------------------------------------------------------------- texture bind group
+        // ----------------------------------------------------------------------------------- diffuse texture bind group
         let diffuse_texture_bind_group_lauout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("diffuse texture bind group layout"),
@@ -649,7 +649,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(effect_renderpass);
 
-        // --------------------------------------------------------------------------------------- renderpass for surface
+        // ---------------------------------------------------------------------------------------- renderpass for scaler
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {

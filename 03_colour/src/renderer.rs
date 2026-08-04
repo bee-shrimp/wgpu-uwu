@@ -18,6 +18,7 @@ pub struct Uniforms {
     pub model_matricx: [[f32; 4]; 4],
 }
 
+// ----------------------------------------------------------------------------------------- vertices to draw a rectangle
 const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-0.25, 0.25, 0.0], // top left

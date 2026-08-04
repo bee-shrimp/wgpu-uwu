@@ -17,6 +17,7 @@ struct MidVertex {
     colour: [f32; 3],
 }
 
+// ----------------------------------------------------------------------------------------- vertices to draw a rectangle
 const MID_VERTICES: &[MidVertex] = &[
     MidVertex {
         position: [-RECT_HALF, RECT_HALF, 0.0], // top left
@@ -73,6 +74,7 @@ struct ScalerVertex {
     uv: [f32; 2],
 }
 
+// ------------------------------------------------------------------------------ vertices to draw a full screen triangle
 const SCALER_VERTICES: &[ScalerVertex] = &[
     ScalerVertex {
         position: [-1.0, -1.0], // bottom left

@@ -54,7 +54,6 @@ const MID_VERTICES: &[Vertex] = &[
 ];
 
 // ---------------------------------------------------------------------------------------- data for scaler vertex buffer
-
 const SCALER_VERTICES: &[Vertex] = &[
     Vertex {
         position: [-1.0, -1.0], // bottom left

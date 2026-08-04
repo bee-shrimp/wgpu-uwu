@@ -451,7 +451,7 @@ impl Renderer {
             cache: None,
         });
 
-        // ------------------------------------------------------ final pipeline to sample effect and draw on the surface
+        // ---------------------------------------------------------------- pipeline to sample mid and draw on a texture
         let scaler_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("render pipeline layout for surface"),
@@ -644,7 +644,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(mid_renderpass);
 
-        // --------------------------------------------------------------------------------------- renderpass for surface
+        // ---------------------------------------------------------------------------------------- renderpass for scaler
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {

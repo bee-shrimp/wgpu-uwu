@@ -637,7 +637,7 @@ impl Renderer {
         // ------------------------------------------------------------------------------------------- end the renderpass
         drop(mid_renderpass);
 
-        // --------------------------------------------------------------------------------------- renderpass for surface
+        // ---------------------------------------------------------------------------------------- renderpass for scaler
         let mut scaler_renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("scaler renderpass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {

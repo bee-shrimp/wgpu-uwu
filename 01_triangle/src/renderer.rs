@@ -4,6 +4,7 @@ use wgpu::util::DeviceExt;
 use crate::Arc;
 use crate::{OwnedDisplayHandle, Window};
 
+// ---------------------------------------------------------------------------------------------------------
 pub struct Renderer {
     instance: wgpu::Instance,
     window: Arc<Window>,

@@ -7,8 +7,6 @@ use crate::{OwnedDisplayHandle, Window};
 
 const RECT_HALF: f32 = 0.5;
 
-// ----------------------------------------------------------------------------------------- data for vertex/index buffer
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
@@ -16,6 +14,7 @@ struct Vertex {
     uv: [f32; 2],
 }
 
+// ----------------------------------------------------------------------------------------- vertices to draw a rectangle
 const VERTICES: &[Vertex] = &[
     Vertex {
         position: [-RECT_HALF, RECT_HALF, 0.0], // top left

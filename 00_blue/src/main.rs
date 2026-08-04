@@ -79,6 +79,7 @@ impl State {
         self.configure_surface();
     }
 
+    // ---------------------------------------------------------------------------------------------------------
     fn render(&mut self) {
         // Create texture view.
         // NOTE: We must handle Timeout because the surface may be unavailable

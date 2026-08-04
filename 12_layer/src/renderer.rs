@@ -44,7 +44,6 @@ impl Vertex {
 }
 
 // ------------------------------------------------------------------------------------------ data for base vertex buffer
-
 const BASE_VERTICES: &[Vertex] = &[
     Vertex {
         position: [0.0, 0.75], // top
