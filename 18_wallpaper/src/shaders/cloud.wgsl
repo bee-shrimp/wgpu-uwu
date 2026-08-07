@@ -39,7 +39,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let value = max(colour.r, max(colour.g, colour.b));
     let is_cloud = value > 0.2;
 
-    let cloud_colour = vec4<f32>(uv.x * 0.8, uv.y * 0.8, 0.8, 1.0);
+    let cloud_colour = vec4<f32>(uv.x * 0.8, uv.y * 0.5, 0.8, 1.0);
 
     let result = select(colour, cloud_colour, is_cloud);
 
